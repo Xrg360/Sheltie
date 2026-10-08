@@ -48,6 +48,10 @@ class FakeActionService:
         self.cleared += 1
         return {"ok": True, "message": "cleared"}
 
+    def silence_alerts(self, minutes):
+        self.silenced_for = minutes
+        return {"ok": True}
+
 
 class ResolveActionTokenTests(unittest.TestCase):
     def test_generates_and_persists_token_when_none_configured(self):
@@ -87,8 +91,8 @@ class ApiServerTests(unittest.TestCase):
         self.server.stop()
         self.server.server.server_close()
 
-    def request(self, path, method="GET", token=None, header="X-Sheltie-Action-Token"):
-        request = urllib.request.Request(f"{self.base}{path}", method=method, data=b"{}" if method == "POST" else None)
+    def request(self, path, method="GET", token=None, header="X-Sheltie-Action-Token", body=b"{}"):
+        request = urllib.request.Request(f"{self.base}{path}", method=method, data=body if method == "POST" else None)
         if token:
             request.add_header(header, token)
         try:
@@ -115,6 +119,18 @@ class ApiServerTests(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertEqual(self.actions.cleared, 1)
+
+    def test_action_reads_json_body(self):
+        body = json.dumps({"minutes": 45}).encode()
+        status, _body = self.request("/api/actions/alerts/silence", method="POST", token=self.server.action_token, body=body)
+
+        self.assertEqual(status, 200)
+        self.assertEqual(self.actions.silenced_for, 45)
+
+    def test_rejected_action_with_body_still_gets_403(self):
+        status, _body = self.request("/api/actions/alerts/silence", method="POST", body=b'{"minutes": 45}' * 50)
+
+        self.assertEqual(status, 403)
 
     def test_actions_accept_legacy_token_header(self):
         token = self.server.action_token

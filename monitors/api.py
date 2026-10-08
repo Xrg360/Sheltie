@@ -60,6 +60,10 @@ class ApiServer:
                 self._write(200, json.dumps(payload, indent=2).encode("utf-8"), "application/json")
 
             def do_POST(self) -> None:
+                # Always consume the request body before answering. Replying while unread data is
+                # still on the socket makes some platforms reset the connection, so the client sees
+                # a dropped connection instead of the response (for example a 403).
+                self._body = self._read_body()
                 if not self._authorized_action(action_token):
                     self._json({"ok": False, "error": "missing or invalid action token"}, status=403)
                     return
@@ -108,15 +112,20 @@ class ApiServer:
                 status = status if status is not None else 200 if payload.get("ok", True) else 400
                 self._write(status, json.dumps(payload, indent=2).encode("utf-8"), "application/json")
 
-            def _read_json(self) -> dict[str, Any]:
+            def _read_body(self) -> bytes:
                 length = int(self.headers.get("Content-Length", "0") or 0)
                 if length <= 0:
-                    return {}
-                if length > 4096:
+                    return b""
+                # Bounded read: anything past 64 KiB is not a valid action payload.
+                return self.rfile.read(min(length, 65536))
+
+            def _read_json(self) -> dict[str, Any]:
+                body = getattr(self, "_body", b"")
+                if not body or len(body) > 4096:
                     return {}
                 try:
-                    return json.loads(self.rfile.read(length).decode("utf-8"))
-                except json.JSONDecodeError:
+                    return json.loads(body.decode("utf-8"))
+                except (json.JSONDecodeError, UnicodeDecodeError):
                     return {}
 
             def _authorized_action(self, token: str | None) -> bool:
