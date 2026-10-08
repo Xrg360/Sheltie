@@ -77,7 +77,7 @@ function seedDemoMetrics(): MetricPoint[] {
   });
 }
 
-export function MeerkatProvider({ children }: { children: ReactNode }) {
+export function SheltieProvider({ children }: { children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [connection, setConnection] = useState<Connection>("connecting");
   const [lastSuccess, setLastSuccess] = useState<number | null>(null);
@@ -308,8 +308,8 @@ export function MeerkatProvider({ children }: { children: ReactNode }) {
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 
-export function useMeerkat(): StoreValue {
+export function useSheltie(): StoreValue {
   const value = useContext(StoreContext);
-  if (!value) throw new Error("useMeerkat must be used inside <MeerkatProvider>");
+  if (!value) throw new Error("useSheltie must be used inside <SheltieProvider>");
   return value;
 }

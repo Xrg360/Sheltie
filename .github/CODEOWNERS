@@ -1,4 +1,4 @@
-# The maintainer reviews everything that defines Meerkat's design contract.
+# The maintainer reviews everything that defines Sheltie's design contract.
 /DESIGN.md                    @xrg360
 /AGENTS.md                    @xrg360
 /src/styles/tokens.css        @xrg360

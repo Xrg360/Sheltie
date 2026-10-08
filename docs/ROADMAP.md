@@ -1,10 +1,10 @@
-# Meerkat roadmap
+# Sheltie roadmap
 
-**Goal:** turn Meerkat from a single-server script into the homelab agent that **tells you what happened while you were offline**. It should survive long network outages, power cuts and server downtime without losing alerts, and it should be easy for anyone to extend.
+**Goal:** turn Sheltie from a single-server script into the homelab agent that **tells you what happened while you were offline**. It should survive long network outages, power cuts and server downtime without losing alerts, and it should be easy for anyone to extend.
 
 Contents:
 
-- [1. Where Meerkat is today](#1-where-meerkat-is-today)
+- [1. Where Sheltie is today](#1-where-sheltie-is-today)
 - [2. Issue audit](#2-issue-audit)
 - [3. Positioning](#3-positioning)
 - [4. Target architecture](#4-target-architecture)
@@ -16,9 +16,9 @@ Contents:
 
 ---
 
-## 1. Where Meerkat is today
+## 1. Where Sheltie is today
 
-Meerkat already has several features other tools lack:
+Sheltie already has several features other tools lack:
 
 - two-way Telegram chat-ops
 - Docker lifecycle events
@@ -79,9 +79,9 @@ Status: ✅ fixed on this branch · 🟡 planned (phase noted)
 
 See [COMPETITIVE_ANALYSIS.md](COMPETITIVE_ANALYSIS.md) for the full comparison.
 
-> Uptime Kuma answers *"is my website up?"*. Beszel answers *"how are my servers doing?"*. **Meerkat answers *"something broke at home while I was away: what happened, did it fix itself, and what do I need to do?"***
+> Uptime Kuma answers *"is my website up?"*. Beszel answers *"how are my servers doing?"*. **Sheltie answers *"something broke at home while I was away: what happened, did it fix itself, and what do I need to do?"***
 
-Meerkat's moat is outage-awareness:
+Sheltie's moat is outage-awareness:
 
 - an offline outbox and "while you were away" digest
 - power-cut forensics on boot
@@ -90,7 +90,7 @@ Meerkat's moat is outage-awareness:
 - intent-aware auto-heal
 - two-way chat-ops
 
-Meerkat should integrate with those tools instead of trying to replace them.
+Sheltie should integrate with those tools instead of trying to replace them.
 
 ---
 
@@ -109,11 +109,11 @@ The full diagrams are in [ARCHITECTURE.md](ARCHITECTURE.md#target-architecture).
 
 ## 5. Resilience plan
 
-| Scenario | What Meerkat will do |
+| Scenario | What Sheltie will do |
 |---|---|
 | **Long network outage** | Commit every alert to the outbox before sending, and retry with backoff. On reconnect, send one digest ("Internet was down 10:02-12:15 (ISP); nextcloud died and was auto-healed; disk 91% for 40m"). Use the gateway → DNS → HTTPS chain to find the root cause and mute dependent alerts. Use a LAN-only channel (ntfy or Home Assistant) for phones on home Wi-Fi. Ignore stale commands *(done)*. Resume the Docker event stream with `since=`. |
 | **Long power cut** | Use crash-safe SQLite. Write a heartbeat every 30s and a clean-shutdown flag. On boot, classify what happened (crash, planned reboot or power loss) with exact downtime, but only after NTP sync. Aggregate the boot storm into one message. Use the NUT UPS monitor to alert on battery *before* the host dies. |
-| **Long server downtime** | Ping `heartbeat.urls` (healthchecks.io or an Uptime Kuma push monitor). Add Meerkat Sentinel (off-site, keeps the last snapshot for context). Add a peer mesh between agents. Add watchdogs on internal tasks, reflected in the Docker `HEALTHCHECK`. |
+| **Long server downtime** | Ping `heartbeat.urls` (healthchecks.io or an Uptime Kuma push monitor). Add Sheltie Sentinel (off-site, keeps the last snapshot for context). Add a peer mesh between agents. Add watchdogs on internal tasks, reflected in the Docker `HEALTHCHECK`. |
 
 The sequence diagrams for each scenario are in [ARCHITECTURE.md](ARCHITECTURE.md#failure-scenarios).
 
@@ -124,7 +124,7 @@ The sequence diagrams for each scenario are in [ARCHITECTURE.md](ARCHITECTURE.md
 - ✅ Action endpoints always require a token. If none is configured, one is generated on first start, logged once, and persisted.
 - Bind the API to `127.0.0.1` by default once the UI is served by the same process.
 - Web UI login with session cookies, then OIDC, with separate read-only and action roles.
-- A documented least-privilege profile: `cap_add: [NET_ADMIN]` instead of `privileged`, and Docker access through a socket proxy limited to the endpoints Meerkat needs. Add `actions.enabled: false` read-only mode to the docs.
+- A documented least-privilege profile: `cap_add: [NET_ADMIN]` instead of `privileged`, and Docker access through a socket proxy limited to the endpoints Sheltie needs. Add `actions.enabled: false` read-only mode to the docs.
 - An audit trail for every action: who did it, through which channel, and the result.
 - ✅ Dependabot, SBOM and build provenance on release images. CodeQL next.
 
@@ -140,7 +140,7 @@ The sequence diagrams for each scenario are in [ARCHITECTURE.md](ARCHITECTURE.md
 - Lifecycle tracking and boot forensics.
 - The plugin API.
 - Alert dependencies, maintenance windows, and silences that expire.
-- Config hot-reload and a `meerkat validate` CLI.
+- Config hot-reload and a `sheltie validate` CLI.
 - FastAPI with SSE live updates.
 
 ### Good first issues
@@ -204,6 +204,29 @@ Each of these is a self-contained plugin of about 50-150 lines plus a test.
 - PWA with web push
 - i18n
 
+### Web UI — UX gaps
+
+Ranked from the [UI/UX competitive analysis](UX_COMPETITIVE_ANALYSIS.md#what-we-lack). P0 items close the rescue loop (notice → understand → fix → confirm), so they come before new monitor types.
+
+| Priority | Gap | Benchmark | Notes |
+|---|---|---|---|
+| P0 | Correlated problems: one root-cause item instead of "site down" + "container stopped" | none (moat) | `src/lib/insights.ts` |
+| P0 | Humanize technical copy (raw HTTP errors, key-value event details) | DESIGN.md §8 | `insights.ts`, `format.ts` — good first issue |
+| P0 | View logs sheet on containers and container problems | Dozzle, Portainer, Dockge | Needs `/api/docker/logs` |
+| P0 | Incidents grouped with duration, auto-heal attempts and Acknowledge | Uptime Kuma, PagerDuty | Builds on the incident timeline |
+| P0 | First-run claim screen instead of `docker logs \| grep token` | Uptime Kuma, Homarr | Then session login (Phase 3) |
+| P0 | Notification channels in Settings with "Send test" | Uptime Kuma | Apprise bridge (Phase 2) |
+| P1 | History ranges 1h / 24h / 7d / 30d | Beszel, Uptime Kuma | Needs metric rollups (Phase 1 SQLite) |
+| P1 | TCP, ping, DNS, TLS-expiry and heartbeat checks in the Add-monitor sheet | Uptime Kuma, Gatus, Maintenant | Plugin monitors |
+| P1 | Per-container CPU/memory and "image update available" | Beszel, Maintenant | |
+| P1 | Maintenance windows and per-item silence | Uptime Kuma | Alert engine |
+| P1 | Installable PWA with web push | Beszel iOS app | |
+| P1 | Read-only shareable status page | Uptime Kuma, Gatus, Maintenant | Phase 3 |
+| P2 | Auto-heal policy UI (opt-in, backoff, "gave up" state) | none | Auto-heal v2 |
+| P2 | Network root-cause chain visual | none | After WAN dependency checks |
+| P2 | Density toggle, CSV export, outage report | — | |
+| P2 | Multi-host switcher, i18n | Beszel, Pulse | Phase 4 |
+
 **Integrations**
 - Uptime Kuma status import
 - Prometheus remote-write
@@ -213,7 +236,7 @@ Each of these is a self-contained plugin of about 50-150 lines plus a test.
 
 ### Auto-heal v2
 
-- Opt in with the `meerkat.autoheal=true` label or a config allowlist.
+- Opt in with the `sheltie.autoheal=true` label or a config allowlist.
 - Heal on `die` with a non-zero exit code or on a healthcheck reporting `unhealthy`. Never heal after a user stop *(done)*.
 - Use exponential backoff with a maximum number of attempts, then escalate ("gave up after 5 tries").
 - Bounce a NIC only when it has carrier but no address or route *(done)*.
@@ -224,13 +247,14 @@ Each of these is a self-contained plugin of about 50-150 lines plus a test.
 
 ```mermaid
 gantt
-  title Meerkat roadmap
+  title Sheltie roadmap
   dateFormat YYYY-MM-DD
   axisFormat %b %d
   section Phase 0 - Foundation
   LICENSE, CI, lint, typecheck, GHCR release      :done, p0a, 2026-10-08, 3d
   P0 fixes - auth, auto-heal intent, stale cmds    :done, p0b, 2026-10-08, 3d
   Savanna UI revamp, DESIGN.md, website, demo      :done, p0c, 2026-10-08, 3d
+  Rename to Sheltie, Ink & Cream theme          :done, p0d, 2026-10-08, 1d
   section Phase 1 - Resilience core
   SQLite store and state.json migration            :p1a, after p0c, 5d
   Outbox, retry and digest                         :p1b, after p1a, 5d
@@ -251,7 +275,7 @@ gantt
 
 | Phase | Done when |
 |---|---|
-| 0 | CI is green on `main`. `ghcr.io/xrg360/meerkat` publishes amd64 and arm64 images. The README has a GIF and quick start. |
+| 0 | CI is green on `main`. `ghcr.io/xrg360/sheltie` publishes amd64 and arm64 images. The README has a GIF and quick start. |
 | 1 | Pull the WAN cable for 2 hours: one digest arrives on reconnect and nothing is lost. Pull the power: the boot message reports the downtime correctly. |
 | 2 | A new notifier can be added in its own package with no core change. Killing the host triggers a Sentinel alert within 2 intervals. |
 | 3 | One process and one port. Login is required for actions. The image is under 150 MB. |
@@ -270,7 +294,7 @@ flowchart LR
   subgraph Site3["VPS"]
     A3["agent"] --- O3[("local outbox")]
   end
-  A1 -->|"outbound WebSocket"| HUB["Meerkat Hub<br/>dashboard, history, status page"]
+  A1 -->|"outbound WebSocket"| HUB["Sheltie Hub<br/>dashboard, history, status page"]
   A2 -->|"outbound WebSocket"| HUB
   A3 -->|"outbound WebSocket"| HUB
   HUB --- SENT["Sentinel role<br/>missed-heartbeat alerts"]
@@ -288,9 +312,9 @@ Agents never need inbound ports. Each one keeps alerting through its own outbox 
 2. ✅ **Make the README sell in 10 seconds.** Done: new README, live demo and SEO website. Owner steps are in [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md).
    - Hero line: "Know what happened while you were offline."
    - A 15-second GIF of the outage digest on a phone.
-   - The comparison table, a one-command install, and `MEERKAT_DEMO=1` simulated outages so people can try it safely.
+   - The comparison table, a one-command install, and `SHELTIE_DEMO=1` simulated outages so people can try it safely.
 3. **Make contributing frictionless.**
-   - A plugin cookbook and a `meerkat new-plugin` scaffold.
+   - A plugin cookbook and a `sheltie new-plugin` scaffold.
    - A devcontainer, plus fake Docker and network fixtures.
    - CI that finishes in under 3 minutes.
    - Every good-first-issue should take one evening.

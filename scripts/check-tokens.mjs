@@ -1,9 +1,10 @@
 // Fails when a color literal appears outside src/styles/tokens.css (DESIGN.md invariant: tokens are the only color source).
 // Brand image assets (src/app/icon.svg) are exempt because SVG files cannot read CSS variables.
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("../src", import.meta.url).pathname;
+const root = fileURLToPath(new URL("../src", import.meta.url));
 const allowed = new Set(["styles/tokens.css", "app/icon.svg", "app/layout.tsx"]);
 const pattern = /#[0-9a-fA-F]{3,8}\b(?![\w-])|\brgba?\(\s*\d|\bhsla?\(\s*\d/g;
 
@@ -16,7 +17,7 @@ function walk(dir) {
 
 const problems = [];
 for (const file of walk(root)) {
-  const rel = relative(root, file);
+  const rel = relative(root, file).split(sep).join("/");
   if (allowed.has(rel) || !/\.(css|tsx?|svg)$/.test(rel)) continue;
   readFileSync(file, "utf8")
     .split("\n")

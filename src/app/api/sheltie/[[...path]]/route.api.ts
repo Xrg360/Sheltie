@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const API_BASE = process.env.MEERKAT_API_BASE || "http://127.0.0.1:8711";
-const FORWARDED_HEADERS = ["content-type", "x-meerkat-action-token"];
+const API_BASE = process.env.SHELTIE_API_BASE || process.env.MEERKAT_API_BASE || "http://127.0.0.1:8711";
+// x-meerkat-action-token is the pre-0.3 header name; the backend accepts both.
+const FORWARDED_HEADERS = ["content-type", "x-sheltie-action-token", "x-meerkat-action-token"];
 
 function backendPath(parts: string[] = []) {
   if (parts[0] === "actions") {
@@ -35,7 +36,7 @@ async function proxy(request: NextRequest, parts: string[] = []) {
     return NextResponse.json(
       {
         ok: false,
-        error: `Meerkat API unavailable at ${API_BASE}`,
+        error: `Sheltie API unavailable at ${API_BASE}`,
         detail: error instanceof Error ? error.message : String(error),
       },
       { status: 503 },

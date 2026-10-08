@@ -9,13 +9,13 @@ import { StatusPill } from "@/components/ui/status";
 import { IS_DEMO } from "@/lib/api";
 import { DOCS_URL, REPO_URL } from "@/lib/nav";
 import type { ThemePref } from "@/lib/prefs";
-import { useMeerkat } from "@/lib/store";
+import { useSheltie } from "@/lib/store";
 import { strings } from "@/lib/strings";
 
 const t = strings.settings;
 
 export function SettingsPage() {
-  const { prefs, setPrefs, snapshot, toast, setShortcutsOpen } = useMeerkat();
+  const { prefs, setPrefs, snapshot, toast, setShortcutsOpen } = useSheltie();
   const [token, setToken] = useState(prefs.token);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
 

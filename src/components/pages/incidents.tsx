@@ -7,7 +7,7 @@ import { EventRow } from "./shared";
 import { EmptyState, PageHeader, SearchInput, Segmented, SkeletonRows } from "@/components/ui/layout";
 import { dayLabel, toMillis } from "@/lib/format";
 import { eventKind } from "@/lib/insights";
-import { useMeerkat } from "@/lib/store";
+import { useSheltie } from "@/lib/store";
 import { strings } from "@/lib/strings";
 import type { EventItem } from "@/lib/types";
 
@@ -15,7 +15,7 @@ const t = strings.incidents;
 type Filter = "all" | "problem" | "recovery" | "repair";
 
 export function IncidentsPage() {
-  const { snapshot, act, confirm } = useMeerkat();
+  const { snapshot, act, confirm } = useSheltie();
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const events = useMemo(() => snapshot?.events ?? snapshot?.status?.recent_events ?? null, [snapshot]);

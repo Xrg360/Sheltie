@@ -41,7 +41,7 @@ h2,
 h3,
 h4 {
   line-height: 1.25;
-  font-weight: 650;
+  font-weight: var(--weight-display);
   letter-spacing: -0.01em;
 }
 
@@ -52,6 +52,19 @@ a {
 
 a:hover {
   text-decoration: underline;
+}
+
+/* The accent is ink, not a hue, so prose links are underlined to stay distinguishable from text. */
+a:not([class]),
+a.link {
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+}
+
+a:not([class]):hover,
+a.link:hover {
+  text-decoration-color: currentColor;
 }
 
 button,

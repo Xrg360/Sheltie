@@ -14,7 +14,7 @@ These rules apply to any automated agent (coding assistants, bots, autonomous PR
 - **No color literals** outside `src/styles/tokens.css`. Use tokens.
 - **No new runtime dependencies** in the dashboard without approval. No web fonts, CDNs, analytics or external requests.
 - **All user-facing strings** go in `src/lib/strings.ts`, written in the voice described in DESIGN.md section 8.
-- **Destructive actions** (restart, remove, clear) must go through `useMeerkat().confirm()`.
+- **Destructive actions** (restart, remove, clear) must go through `useSheltie().confirm()`.
 - **Backend payload changes** must be mirrored in `src/lib/types.ts` and `src/lib/demo-data.ts`, and covered by a Python test in `tests/`.
 - Do not weaken tests, axe rules or lint settings to make CI pass.
 

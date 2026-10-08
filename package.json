@@ -1,12 +1,12 @@
 {
-  "name": "meerkat-monitor",
+  "name": "sheltie",
   "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 8710",
-    "dev:demo": "NEXT_PUBLIC_MEERKAT_DEMO=1 next dev -p 8710",
+    "dev:demo": "NEXT_PUBLIC_SHELTIE_DEMO=1 next dev -p 8710",
     "build": "next build",
-    "build:demo": "MEERKAT_STATIC_EXPORT=1 MEERKAT_BASE_PATH=${MEERKAT_BASE_PATH-/demo} next build",
+    "build:demo": "SHELTIE_STATIC_EXPORT=1 SHELTIE_BASE_PATH=${SHELTIE_BASE_PATH-/demo} next build",
     "start": "next start -p 8710",
     "typecheck": "tsc --noEmit",
     "check:tokens": "node scripts/check-tokens.mjs",
@@ -17,16 +17,16 @@
   },
   "dependencies": {
     "lucide-react": "^0.544.0",
-    "next": "^16.1.6",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "next": "^16.3.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
-    "@playwright/test": "^1.56.1",
-    "@types/node": "^24.0.0",
-    "@types/react": "^19.2.0",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
     "@types/react-dom": "^19.2.0",
-    "typescript": "^5.9.0"
+    "typescript": "^7.0.2"
   }
 }

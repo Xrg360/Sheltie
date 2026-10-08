@@ -5,6 +5,7 @@ from typing import Any
 import requests
 
 from monitors.alerts import silence_active
+from monitors.config import env
 
 
 class TelegramNotifier:
@@ -12,12 +13,12 @@ class TelegramNotifier:
         telegram_config = config.get("telegram", {}) or {}
         self.bot_token = (
             os.getenv("TELEGRAM_BOT_TOKEN")
-            or os.getenv("MEERKAT_TELEGRAM_BOT_TOKEN")
+            or env("TELEGRAM_BOT_TOKEN")
             or telegram_config.get("bot_token")
         )
         self.chat_id = (
             os.getenv("TELEGRAM_CHAT_ID")
-            or os.getenv("MEERKAT_TELEGRAM_CHAT_ID")
+            or env("TELEGRAM_CHAT_ID")
             or telegram_config.get("chat_id")
         )
         self.state = state

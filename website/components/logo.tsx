@@ -1,17 +1,27 @@
+import { useId } from "react";
+
 // Same mark as the dashboard (src/components/ui/logo.tsx). Colors come from --brand-* tokens.
-export function Logo({ size = 32 }: { size?: number }) {
+export function Logo({ size = 32, title = "Sheltie" }: { size?: number; title?: string }) {
+  const clip = useId();
   return (
-    <svg className="logo" width={size} height={size} viewBox="0 0 64 64" role="img" aria-label="Meerkat">
-      <rect className="logo__bg" width="64" height="64" rx="16" />
-      <rect className="logo__ground" x="10" y="54" width="44" height="3" rx="1.5" />
-      <path className="logo__tail" d="M25 52c-4 1-8 1.5-11 3.5" fill="none" strokeWidth="3.2" strokeLinecap="round" />
-      <path className="logo__fur" d="M24 55c-1.6-7-1.8-14 .4-21 1.4-4.4 3.9-7.6 7-9.2l5.2 1.4c2.2 4.2 2.8 9.6 2.2 15.5-.6 5.4-2.2 10-4.4 13.3Z" />
-      <path className="logo__fur" d="M28.5 18.2c0-4.6 3.6-8 8-8 3.3 0 5.6 1.8 7.1 4.6l4.4 2.3c.9.5.9 1.7 0 2.2l-4.5 2.1c-1.4 3-4 4.8-7.3 4.8-4.4 0-7.7-3.4-7.7-8Z" />
-      <circle className="logo__fur-dark" cx="31.2" cy="11.8" r="2.3" />
-      <ellipse className="logo__mask" cx="38.6" cy="16.6" rx="2.6" ry="1.9" />
-      <circle className="logo__eye" cx="39" cy="16.4" r="0.9" />
-      <circle className="logo__mask" cx="48.2" cy="18.4" r="1.4" />
-      <path className="logo__fur-dark" d="M35.6 31.2c1.8-.4 3.6.2 4.4 1.4.4.7-.1 1.5-.9 1.4-1.4-.2-2.6-.1-3.8.4-.8.3-1.6-.3-1.4-1.1.2-.9.8-1.7 1.7-2.1Z" />
+    <svg className="logo" width={size} height={size} viewBox="0 0 64 64" role="img" aria-label={title}>
+      <defs>
+        <clipPath id={clip}>
+          <rect width="64" height="64" rx="16" />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${clip})`}>
+        <rect className="logo__bg" width="64" height="64" />
+        <path className="logo__collar" d="M10 66 Q10 49 20 42 Q26 48 32 56 Q38 48 44 42 Q54 49 54 66 Z" />
+      </g>
+      <path
+        className="logo__head"
+        d="M21 25 L20.4 14.5 L16 16.6 Q15.2 16.8 15.6 16 L21.6 9.6 Q22.4 8.8 23.2 9.6 L29.6 17.6 Q32 16.5 34.4 17.6 L40.8 9.6 Q41.6 8.8 42.4 9.6 L48.4 16 Q48.8 16.8 48 16.6 L43.6 14.5 L43 25 Q49.5 25.8 50.5 30 Q48 31.8 50.5 35 Q46.5 38.3 42 40 L35.6 52.4 Q32 56.6 28.4 52.4 L22 40 Q17.5 38.3 13.5 35 Q16 31.8 13.5 30 Q14.5 25.8 21 25 Z"
+      />
+      <path className="logo__blaze" d="M32 19.5 Q33.4 19.5 33.7 24 L35.2 45.5 Q32 49.5 28.8 45.5 L30.3 24 Q30.6 19.5 32 19.5 Z" />
+      <ellipse className="logo__eye" cx="25.8" cy="29.5" rx="2.3" ry="1.8" transform="rotate(15 25.8 29.5)" />
+      <ellipse className="logo__eye" cx="38.2" cy="29.5" rx="2.3" ry="1.8" transform="rotate(-15 38.2 29.5)" />
+      <ellipse className="logo__head" cx="32" cy="51" rx="2.9" ry="2.1" />
     </svg>
   );
 }

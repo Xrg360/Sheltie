@@ -1,10 +1,10 @@
 import { AppShell } from "@/components/shell/app-shell";
-import { MeerkatProvider } from "@/lib/store";
+import { SheltieProvider } from "@/lib/store";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <MeerkatProvider>
+    <SheltieProvider>
       <AppShell>{children}</AppShell>
-    </MeerkatProvider>
+    </SheltieProvider>
   );
 }

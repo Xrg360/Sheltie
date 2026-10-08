@@ -1,6 +1,6 @@
-# Meerkat website
+# Sheltie website
 
-The public site at **https://meerkat.simplewebsite.in**: landing page, feature list, comparison pages, docs rendered from the repository's Markdown, and a **live demo** of the real dashboard running on simulated data.
+The public site at **https://sheltie.simplewebsite.in**: landing page, feature list, comparison pages, docs rendered from the repository's Markdown, and a **live demo** of the real dashboard running on simulated data.
 
 It is a static Next.js export. Shared assets (design tokens, logo, docs, screenshots, social image) are copied from the main repo by `scripts/sync.mjs` on every build, so the site never drifts from the product.
 
@@ -26,9 +26,9 @@ mkdir -p out/demo && cp -r ../out/. out/demo/
 
 One-time setup by the repository owner:
 
-1. **DNS:** at the DNS provider for `simplewebsite.in`, add a `CNAME` record: `meerkat` → `xrg360.github.io`.
-2. **GitHub:** Settings → Pages → Source: **GitHub Actions**. Custom domain: `meerkat.simplewebsite.in`. Tick **Enforce HTTPS** once the certificate is issued.
-3. Optional: set the repository variable `SITE_URL` to change the canonical URL (defaults to `https://meerkat.simplewebsite.in`).
+1. **DNS:** at the DNS provider for `simplewebsite.in`, add a `CNAME` record: `sheltie` → `xrg360.github.io`.
+2. **GitHub:** Settings → Pages → Source: **GitHub Actions**. Custom domain: `sheltie.simplewebsite.in`. Tick **Enforce HTTPS** once the certificate is issued.
+3. Optional: set the repository variable `SITE_URL` to change the canonical URL (defaults to `https://sheltie.simplewebsite.in`).
 
 ## SEO checklist built in
 

@@ -1,11 +1,13 @@
 import json
 import logging
 import hmac
-import os
+import re
 import secrets
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
+
+from monitors.config import env
 
 
 class ApiServer:
@@ -13,7 +15,7 @@ class ApiServer:
         api_config = config.get("api", {}) or {}
         self.enabled = bool(api_config.get("enabled", True))
         self.host = str(api_config.get("host", "0.0.0.0"))
-        self.port = int(os.getenv("MEERKAT_API_PORT") or api_config.get("port", 8710))
+        self.port = int(env("API_PORT") or api_config.get("port", 8710))
         self.status_service = status_service
         self.action_service = action_service
         self.action_token = resolve_action_token(config, status_service.state)
@@ -58,6 +60,10 @@ class ApiServer:
                 self._write(200, json.dumps(payload, indent=2).encode("utf-8"), "application/json")
 
             def do_POST(self) -> None:
+                # Always consume the request body before answering. Replying while unread data is
+                # still on the socket makes some platforms reset the connection, so the client sees
+                # a dropped connection instead of the response (for example a 403).
+                self._body = self._read_body()
                 if not self._authorized_action(action_token):
                     self._json({"ok": False, "error": "missing or invalid action token"}, status=403)
                     return
@@ -106,21 +112,27 @@ class ApiServer:
                 status = status if status is not None else 200 if payload.get("ok", True) else 400
                 self._write(status, json.dumps(payload, indent=2).encode("utf-8"), "application/json")
 
-            def _read_json(self) -> dict[str, Any]:
+            def _read_body(self) -> bytes:
                 length = int(self.headers.get("Content-Length", "0") or 0)
                 if length <= 0:
-                    return {}
-                if length > 4096:
+                    return b""
+                # Bounded read: anything past 64 KiB is not a valid action payload.
+                return self.rfile.read(min(length, 65536))
+
+            def _read_json(self) -> dict[str, Any]:
+                body = getattr(self, "_body", b"")
+                if not body or len(body) > 4096:
                     return {}
                 try:
-                    return json.loads(self.rfile.read(length).decode("utf-8"))
-                except json.JSONDecodeError:
+                    return json.loads(body.decode("utf-8"))
+                except (json.JSONDecodeError, UnicodeDecodeError):
                     return {}
 
             def _authorized_action(self, token: str | None) -> bool:
                 if not token:
                     return False
-                supplied = self.headers.get("X-Meerkat-Action-Token", "")
+                # X-Meerkat-Action-Token is the pre-0.3 header name, still accepted.
+                supplied = self.headers.get(ACTION_TOKEN_HEADER) or self.headers.get(LEGACY_ACTION_TOKEN_HEADER) or ""
                 return hmac.compare_digest(str(token), supplied)
 
         self.server = ThreadingHTTPServer((self.host, self.port), Handler)
@@ -134,11 +146,13 @@ class ApiServer:
 
 
 GENERATED_TOKEN_KEY = "api.action_token"
+ACTION_TOKEN_HEADER = "X-Sheltie-Action-Token"
+LEGACY_ACTION_TOKEN_HEADER = "X-Meerkat-Action-Token"
 
 
 def resolve_action_token(config: dict[str, Any], state: Any) -> str:
     action_config = config.get("actions", {}) or {}
-    configured = os.getenv("MEERKAT_ACTION_TOKEN") or action_config.get("token")
+    configured = env("ACTION_TOKEN") or action_config.get("token")
     if configured:
         return str(configured)
 
@@ -154,7 +168,7 @@ def resolve_action_token(config: dict[str, Any], state: Any) -> str:
     state.set(GENERATED_TOKEN_KEY, generated)
     logging.warning(
         "No action token configured. Generated one for action endpoints: %s "
-        "(set MEERKAT_ACTION_TOKEN to choose your own)",
+        "(set SHELTIE_ACTION_TOKEN to choose your own)",
         generated,
     )
     return generated
@@ -166,37 +180,39 @@ def metrics_payload(status_service: Any) -> str:
     network = status_service.network()
     sites = status_service.sites()
     lines = [
-        "# HELP meerkat_cpu_percent Current CPU usage percent",
-        "# TYPE meerkat_cpu_percent gauge",
-        f"meerkat_cpu_percent {health['cpu_percent']}",
-        "# HELP meerkat_ram_percent Current RAM usage percent",
-        "# TYPE meerkat_ram_percent gauge",
-        f"meerkat_ram_percent {health['ram_percent']}",
-        "# HELP meerkat_disk_percent Current disk usage percent",
-        "# TYPE meerkat_disk_percent gauge",
-        f"meerkat_disk_percent {health['disk_percent']}",
-        "# HELP meerkat_internet_up Internet reachability state",
-        "# TYPE meerkat_internet_up gauge",
-        f"meerkat_internet_up {1 if status.get('internet_up') else 0}",
-        "# HELP meerkat_alerts_active Active alert count",
-        "# TYPE meerkat_alerts_active gauge",
-        f"meerkat_alerts_active {len(status.get('active_alerts', []))}",
-        "# HELP meerkat_sites_up Number of configured sites currently up",
-        "# TYPE meerkat_sites_up gauge",
-        f"meerkat_sites_up {sites['up']}",
-        "# HELP meerkat_sites_down Number of configured sites currently down",
-        "# TYPE meerkat_sites_down gauge",
-        f"meerkat_sites_down {sites['down']}",
+        "# HELP sheltie_cpu_percent Current CPU usage percent",
+        "# TYPE sheltie_cpu_percent gauge",
+        f"sheltie_cpu_percent {health['cpu_percent']}",
+        "# HELP sheltie_ram_percent Current RAM usage percent",
+        "# TYPE sheltie_ram_percent gauge",
+        f"sheltie_ram_percent {health['ram_percent']}",
+        "# HELP sheltie_disk_percent Current disk usage percent",
+        "# TYPE sheltie_disk_percent gauge",
+        f"sheltie_disk_percent {health['disk_percent']}",
+        "# HELP sheltie_internet_up Internet reachability state",
+        "# TYPE sheltie_internet_up gauge",
+        f"sheltie_internet_up {1 if status.get('internet_up') else 0}",
+        "# HELP sheltie_alerts_active Active alert count",
+        "# TYPE sheltie_alerts_active gauge",
+        f"sheltie_alerts_active {len(status.get('active_alerts', []))}",
+        "# HELP sheltie_sites_up Number of configured sites currently up",
+        "# TYPE sheltie_sites_up gauge",
+        f"sheltie_sites_up {sites['up']}",
+        "# HELP sheltie_sites_down Number of configured sites currently down",
+        "# TYPE sheltie_sites_down gauge",
+        f"sheltie_sites_down {sites['down']}",
     ]
     for label, details in network.get("interfaces", {}).items():
-        lines.append(f'meerkat_network_interface_up{{interface="{details["name"]}",type="{label}"}} {1 if details["up"] else 0}')
+        lines.append(f'sheltie_network_interface_up{{interface="{details["name"]}",type="{label}"}} {1 if details["up"] else 0}')
     for site in sites.get("sites", []):
         name = str(site.get("name", "unknown")).replace("\\", "\\\\").replace('"', '\\"')
-        lines.append(f'meerkat_site_up{{name="{name}"}} {1 if site.get("up") else 0}')
+        lines.append(f'sheltie_site_up{{name="{name}"}} {1 if site.get("up") else 0}')
         latency = site.get("latency_ms")
         if latency is not None:
-            lines.append(f'meerkat_site_latency_ms{{name="{name}"}} {latency}')
-    return "\n".join(lines) + "\n"
+            lines.append(f'sheltie_site_latency_ms{{name="{name}"}} {latency}')
+    # Deprecated: the same series under the pre-0.3 meerkat_* names, kept for one minor release.
+    legacy = [re.sub(r"^(# (?:HELP|TYPE) )?sheltie_", r"\1meerkat_", line) for line in lines]
+    return "\n".join(lines + legacy) + "\n"
 
 
 def dashboard_html(page: str = "home") -> str:
@@ -206,7 +222,7 @@ def dashboard_html(page: str = "home") -> str:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Meerkat</title>
+  <title>Sheltie</title>
   <style>
     :root {{
       --bg: #eef3f8;
@@ -465,13 +481,13 @@ def dashboard_html(page: str = "home") -> str:
 <div class="app">
   <aside class="sidebar">
     <div class="brand">
-      <svg class="logo" viewBox="0 0 64 64" role="img" aria-label="Meerkat logo">
+      <svg class="logo" viewBox="0 0 64 64" role="img" aria-label="Sheltie logo">
         <defs><linearGradient id="logoGradient" x1="8" y1="7" x2="56" y2="58" gradientUnits="userSpaceOnUse"><stop stop-color="#20c977"/><stop offset="1" stop-color="#2563eb"/></linearGradient></defs>
         <rect width="64" height="64" rx="12" fill="url(#logoGradient)"/>
         <path d="M18 45V22c0-4 3-7 7-7h14c4 0 7 3 7 7v23h-8V25l-6 17h-5l-6-17v20h-8Z" fill="#fff"/>
         <circle cx="24" cy="18" r="3" fill="#0e131b" opacity=".26"/><circle cx="40" cy="18" r="3" fill="#0e131b" opacity=".26"/>
       </svg>
-      <div><h1>Meerkat</h1><div class="subtitle">Uptime and homelab monitoring</div></div>
+      <div><h1>Sheltie</h1><div class="subtitle">Uptime and homelab monitoring</div></div>
     </div>
     <div class="pill"><span id="liveDot" class="dot"></span><span id="liveText">Loading</span><span id="refreshAge">--s</span></div>
     <nav class="nav">
@@ -576,7 +592,7 @@ let lastRefresh = 0;
 let refreshTimer = null;
 let latest = {{status: null, health: null, network: null, docker: null, sites: {{sites: []}}}};
 let selectedSiteName = "";
-let seenAlerts = new Set(JSON.parse(localStorage.getItem("meerkatSeenAlerts") || "[]"));
+let seenAlerts = new Set(JSON.parse((localStorage.getItem("sheltieSeenAlerts") || localStorage.getItem("meerkatSeenAlerts")) || "[]"));
 function esc(value) {{ return String(value ?? "").replace(/[&<>"']/g, ch => ({{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}}[ch])); }}
 function pct(value) {{ return Math.round(Number(value || 0)); }}
 function statusLabel(value) {{ return value === true ? "up" : value === false ? "down" : "unknown"; }}
@@ -584,7 +600,7 @@ function latencyText(value) {{ return value === null || value === undefined ? "-
 function siteHistory(site) {{ return Array.isArray(site?.history) ? site.history : []; }}
 function avgLatency(site) {{ const s = siteHistory(site).map(x => x.latency_ms).filter(x => x !== null && x !== undefined); return s.length ? s.reduce((a,b) => a + Number(b), 0) / s.length : null; }}
 function uptime(site) {{ const s = siteHistory(site); if (!s.length) return site?.up ? 100 : 0; return Math.round(s.filter(x => x.up === true).length / s.length * 1000) / 10; }}
-function prefs() {{ return JSON.parse(localStorage.getItem("meerkatUiPrefs") || "{{}}"); }}
+function prefs() {{ return JSON.parse((localStorage.getItem("sheltieUiPrefs") || localStorage.getItem("meerkatUiPrefs")) || "{{}}"); }}
 function selectedSite() {{ const sites = latest.sites.sites || []; return sites.find(site => site.name === selectedSiteName) || sites[0] || null; }}
 function statusMini(site) {{ return `<span class="status-mini ${{site?.up ? "" : "down"}}">${{site?.up ? "UP" : "DN"}}</span>`; }}
 function bars(site, count = 24) {{
@@ -605,7 +621,7 @@ function applyPreferences() {{
   const popup = document.getElementById("popupToggle");
   if (theme) theme.value = p.theme || "light";
   if (refresh) refresh.value = String(p.refresh || 10000);
-  if (token) token.value = localStorage.getItem("meerkatActionToken") || "";
+  if (token) token.value = (localStorage.getItem("sheltieActionToken") || localStorage.getItem("meerkatActionToken")) || "";
   if (popup) popup.checked = p.popups !== false;
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = setInterval(refresh, Number(p.refresh || 10000));
@@ -615,19 +631,19 @@ function savePreferences() {{
   const theme = document.getElementById("themeSelect");
   const refresh = document.getElementById("refreshSelect");
   const popup = document.getElementById("popupToggle");
-  localStorage.setItem("meerkatUiPrefs", JSON.stringify({{theme: theme ? theme.value : p.theme || "light", refresh: refresh ? Number(refresh.value) : p.refresh || 10000, popups: popup ? popup.checked : p.popups !== false}}));
+  localStorage.setItem("sheltieUiPrefs", JSON.stringify({{theme: theme ? theme.value : p.theme || "light", refresh: refresh ? Number(refresh.value) : p.refresh || 10000, popups: popup ? popup.checked : p.popups !== false}}));
   applyPreferences();
 }}
 function saveActionToken() {{
   const token = document.getElementById("tokenInput").value.trim();
-  if (token) localStorage.setItem("meerkatActionToken", token); else localStorage.removeItem("meerkatActionToken");
+  if (token) localStorage.setItem("sheltieActionToken", token); else localStorage.removeItem("sheltieActionToken");
   showToast("Action token", token ? "Saved for this browser." : "Cleared.");
 }}
-function pinnedNames() {{ return new Set(JSON.parse(localStorage.getItem("meerkatPinnedSites") || "[]")); }}
+function pinnedNames() {{ return new Set(JSON.parse((localStorage.getItem("sheltiePinnedSites") || localStorage.getItem("meerkatPinnedSites")) || "[]")); }}
 function togglePin(name) {{
   const pins = pinnedNames();
   if (pins.has(name)) pins.delete(name); else pins.add(name);
-  localStorage.setItem("meerkatPinnedSites", JSON.stringify([...pins]));
+  localStorage.setItem("sheltiePinnedSites", JSON.stringify([...pins]));
   renderAll();
 }}
 function enableNotifications() {{
@@ -644,7 +660,7 @@ function showToast(title, body) {{
 function alertUser(event) {{
   const p = prefs();
   if (p.popups !== false) showToast(event.title || "Alert", event.body || event.severity || "");
-  if ("Notification" in window && Notification.permission === "granted") new Notification(event.title || "Meerkat alert", {{body: event.body || event.severity || ""}});
+  if ("Notification" in window && Notification.permission === "granted") new Notification(event.title || "Sheltie alert", {{body: event.body || event.severity || ""}});
 }}
 function drawLoadingChart() {{
   const svg = document.getElementById("latencyChart"); if (!svg) return;
@@ -732,16 +748,16 @@ async function refresh() {{
       const key = `${{e.ts}}:${{e.alert_id}}:${{e.status}}`;
       if (!seenAlerts.has(key)) {{ seenAlerts.add(key); alertUser(e); }}
     }});
-    localStorage.setItem("meerkatSeenAlerts", JSON.stringify([...seenAlerts].slice(-100)));
+    localStorage.setItem("sheltieSeenAlerts", JSON.stringify([...seenAlerts].slice(-100)));
   }} catch (error) {{
     document.getElementById("liveDot").className = "dot bad";
     document.getElementById("liveText").textContent = "Offline";
   }}
 }}
 async function postJson(url, body = {{}}) {{
-  const token = localStorage.getItem("meerkatActionToken");
+  const token = (localStorage.getItem("sheltieActionToken") || localStorage.getItem("meerkatActionToken"));
   const headers = {{"Content-Type": "application/json"}};
-  if (token) headers["X-Meerkat-Action-Token"] = token;
+  if (token) headers["X-Sheltie-Action-Token"] = token;
   const response = await fetch(url, {{method: "POST", headers, body: JSON.stringify(body)}});
   const payload = await response.json();
   if (!payload.ok) showToast("Action failed", payload.error || "Request failed");
