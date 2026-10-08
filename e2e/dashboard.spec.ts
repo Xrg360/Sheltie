@@ -29,10 +29,17 @@ test.describe("every page answers first and is accessible", () => {
 
 test("command palette searches and navigates", async ({ page, isMobile }) => {
   await page.goto("");
-  if (isMobile) await page.getByRole("button", { name: "Search or run a command" }).click();
-  else await page.keyboard.press("Control+k");
   const input = page.getByRole("combobox");
-  await expect(input).toBeFocused();
+  // The shortcut and the button only work once React has hydrated, which can lag behind the first
+  // paint on a busy CI runner. Retry until the palette opens, but only while it is still closed:
+  // Ctrl+K toggles, so pressing it again on an open palette would close it.
+  await expect(async () => {
+    if (!(await input.isVisible())) {
+      if (isMobile) await page.getByRole("button", { name: "Search or run a command" }).click();
+      else await page.keyboard.press("Control+k");
+    }
+    await expect(input).toBeFocused({ timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
   await input.fill("network");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/network\/?$/);
