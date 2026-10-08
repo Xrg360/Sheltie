@@ -10,20 +10,20 @@ const STORIES = [
   {
     icon: CloudOff,
     title: "Your ISP drops for two hours",
-    today: "Meerkat records when the internet went down and when it came back. Open the dashboard later and “Since your last visit” tells you the whole story.",
+    today: "Labwarden records when the internet went down and when it came back. Open the dashboard later and “Since your last visit” tells you the whole story.",
     next: "Planned: alerts queue up during the outage and arrive as one digest when you are back online.",
   },
   {
     icon: PlugZap,
     title: "The power goes out overnight",
-    today: "When the host comes back, Meerkat announces it booted, restarts containers that crashed, and leaves the ones you stopped on purpose alone.",
+    today: "When the host comes back, Labwarden announces it booted, restarts containers that crashed, and leaves the ones you stopped on purpose alone.",
     next: "Planned: on boot it will say whether it was a power cut, a crash or a reboot, and for how long.",
   },
   {
     icon: ServerCrash,
     title: "The server itself goes dark",
-    today: "Pair Meerkat with an external push monitor (for example Uptime Kuma or healthchecks.io) to be told when the whole host stops answering.",
-    next: "Planned: a built-in heartbeat and an off-site Meerkat Sentinel with the last known state of your lab.",
+    today: "Pair Labwarden with an external push monitor (for example Uptime Kuma or healthchecks.io) to be told when the whole host stops answering.",
+    next: "Planned: a built-in heartbeat and an off-site Labwarden Sentinel with the last known state of your lab.",
   },
 ];
 
@@ -34,7 +34,7 @@ export default function Home() {
         data={{
           "@context": "https://schema.org",
           "@type": "SoftwareApplication",
-          name: "Meerkat",
+          name: "Labwarden",
           applicationCategory: "DeveloperApplication",
           operatingSystem: "Linux (Docker), amd64 and arm64",
           softwareVersion: VERSION,
@@ -57,10 +57,10 @@ export default function Home() {
 
       <section className="hero">
         <div className="container hero__inner">
-          <span className="pill pill--accent">Open source · Self-hosted · v{VERSION}</span>
+          <span className="pill pill--accent">Open source · Self-hosted · v{VERSION} · Formerly Meerkat</span>
           <h1>{TAGLINE}</h1>
           <p className="hero__lead">
-            Meerkat keeps watch over your Docker homelab: websites, containers, network failover and host health. It tells you in plain words what is wrong, fixes what it
+            Labwarden keeps watch over your Docker homelab: websites, containers, network failover and host health. It tells you in plain words what is wrong, fixes what it
             safely can, and shows what happened while you were away.
           </p>
           <div className="hero__actions">
@@ -73,7 +73,7 @@ export default function Home() {
           </div>
           <p className="subtle">Free under Apache-2.0 · No telemetry · Runs on a Raspberry Pi</p>
           <figure className="shot">
-            <img src="/screenshots/overview-light.png" width={1440} height={900} alt="Meerkat Overview: “2 problems need attention”, with a down blog and a stopped container, each with a fix-it button, plus a summary of events since your last visit." />
+            <img src="/screenshots/overview-light.png" width={1440} height={900} alt="Labwarden Overview: “2 problems need attention”, with a down blog and a stopped container, each with a fix-it button, plus a summary of events since your last visit." />
           </figure>
         </div>
       </section>
@@ -82,7 +82,7 @@ export default function Home() {
         <div className="container">
           <div className="section__head">
             <span className="eyebrow">Built for the bad days</span>
-            <h2 id="stories">Other dashboards go blank when things break. Meerkat is built for exactly that moment.</h2>
+            <h2 id="stories">Other dashboards go blank when things break. Labwarden is built for exactly that moment.</h2>
           </div>
           <div className="grid grid--3">
             {STORIES.map((story) => (
@@ -130,7 +130,7 @@ export default function Home() {
             </ul>
           </div>
           <figure className="shot shot--phone">
-            <img src="/screenshots/overview-mobile.png" width={390} height={844} alt="Meerkat on a phone: the Overview with problems and a bottom tab bar." />
+            <img src="/screenshots/overview-mobile.png" width={390} height={844} alt="Labwarden on a phone: the Overview with problems and a bottom tab bar." />
           </figure>
         </div>
       </section>
@@ -160,8 +160,8 @@ export default function Home() {
           <div className="grid grid--3">
             {COMPARISONS.map((comparison) => (
               <Link className="card" key={comparison.slug} href={`/compare/${comparison.slug}/`}>
-                <h3>Meerkat vs {comparison.name}</h3>
-                <p className="muted">{comparison.chooseMeerkat}</p>
+                <h3>Labwarden vs {comparison.name}</h3>
+                <p className="muted">{comparison.chooseLabwarden}</p>
                 <span>
                   Read the comparison <ArrowRight size={14} aria-hidden="true" />
                 </span>
@@ -191,8 +191,8 @@ export default function Home() {
       <section className="section" aria-labelledby="cta">
         <div className="container">
           <div className="cta">
-            <h2 id="cta">Give your homelab a lookout.</h2>
-            <p>Meerkat is built in the open. Star the repo to follow along, or pick a good first issue and add the monitor you wish existed.</p>
+            <h2 id="cta">Give your homelab a warden.</h2>
+            <p>Labwarden is built in the open. Star the repo to follow along, or pick a good first issue and add the monitor you wish existed.</p>
             <div className="hero__actions">
               <a className="btn btn--primary" href={REPO_URL}>
                 <GitHubMark /> Star on GitHub

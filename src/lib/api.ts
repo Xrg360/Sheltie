@@ -1,9 +1,9 @@
 import { demoAction, demoSnapshot } from "./demo-data";
 import type { ActionResult, DockerPayload, EventItem, HealthPayload, NetworkPayload, SitesPayload, Snapshot, StatusPayload } from "./types";
 
-export const IS_DEMO = process.env.NEXT_PUBLIC_MEERKAT_DEMO === "1";
+export const IS_DEMO = process.env.NEXT_PUBLIC_LABWARDEN_DEMO === "1";
 
-const BASE = "/api/meerkat";
+const BASE = "/api/labwarden";
 const TIMEOUT_MS = 8_000;
 
 export class ApiError extends Error {
@@ -53,7 +53,7 @@ export async function fetchSnapshot(): Promise<Snapshot> {
   const all = [status, health, network, docker, sites, events];
   if (all.every((result) => result.status === "rejected")) {
     const reason = (status as PromiseRejectedResult).reason;
-    throw reason instanceof Error ? reason : new ApiError("Meerkat API unavailable", 0);
+    throw reason instanceof Error ? reason : new ApiError("Labwarden API unavailable", 0);
   }
 
   const value = <T,>(result: PromiseSettledResult<T>): T | null => (result.status === "fulfilled" ? result.value : null);
@@ -75,7 +75,7 @@ export async function runAction(path: string, body: Record<string, unknown>, tok
     return demoAction(path, body);
   }
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["X-Meerkat-Action-Token"] = token;
+  if (token) headers["X-Labwarden-Action-Token"] = token;
   try {
     return await request<ActionResult>(path, { method: "POST", headers, body: JSON.stringify(body) });
   } catch (error) {

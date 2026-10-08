@@ -49,7 +49,7 @@ class FakeAutoHealAlerts:
 
 class FakeAutoHealActions:
     def __init__(self) -> None:
-        self.blocked_containers = {"meerkat"}
+        self.blocked_containers = {"labwarden"}
         self.started = []
         self.restarted_interfaces = []
 
@@ -97,13 +97,21 @@ class AlertManagerTests(unittest.TestCase):
     def test_force_event_reaches_notifier(self):
         manager, _state, notifier, _history = self.make_manager()
 
-        manager.event("meerkat.boot", "meerkat", "info", "boot", "body", force=True)
+        manager.event("labwarden.boot", "labwarden", "info", "boot", "body", force=True)
 
         self.assertTrue(notifier.alerts[0][1])
 
 
 class ActionServiceTests(unittest.TestCase):
-    def test_blocks_meerkat_restart_by_default(self):
+    def test_blocks_labwarden_restart_by_default(self):
+        service = ActionService({"actions": {"enabled": True}}, FakeState(), None)
+
+        result = service.restart_container("labwarden")
+
+        self.assertFalse(result["ok"])
+        self.assertIn("blocked", result["error"])
+
+    def test_blocks_legacy_meerkat_container_by_default(self):
         service = ActionService({"actions": {"enabled": True}}, FakeState(), None)
 
         result = service.restart_container("meerkat")
@@ -145,10 +153,10 @@ class AutoHealMonitorTests(unittest.TestCase):
 
     def test_does_not_restart_blocked_container(self):
         monitor, state, _alerts, actions = self.make_monitor()
-        state.set("auto_heal.containers.active", ["meerkat"])
+        state.set("auto_heal.containers.active", ["labwarden"])
 
         with patch("monitors.autofix.docker.from_env") as docker_from_env:
-            docker_from_env.return_value.containers.list.return_value = [FakeContainer("meerkat", "exited")]
+            docker_from_env.return_value.containers.list.return_value = [FakeContainer("labwarden", "exited")]
             monitor._heal_containers()
 
         self.assertEqual(actions.started, [])

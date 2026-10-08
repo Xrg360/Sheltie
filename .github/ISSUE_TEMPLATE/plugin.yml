@@ -9,7 +9,7 @@ body:
       options:
         - Monitor (something to check)
         - Notifier (somewhere to send alerts)
-        - Action (something Meerkat can do to repair)
+        - Action (something Labwarden can do to repair)
     validations:
       required: true
   - type: input

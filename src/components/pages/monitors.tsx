@@ -10,7 +10,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Card, EmptyState, PageHeader, SearchInput, Segmented, SkeletonRows } from "@/components/ui/layout";
 import { StatusPill } from "@/components/ui/status";
 import { averageLatency, hostFromUrl, isValidHttpUrl, ms, nameFromUrl, percentileLatency, samples, uptime } from "@/lib/format";
-import { useMeerkat } from "@/lib/store";
+import { useLabwarden } from "@/lib/store";
 import { strings } from "@/lib/strings";
 import type { Site } from "@/lib/types";
 
@@ -18,7 +18,7 @@ const t = strings.monitors;
 type Filter = "all" | "down" | "up";
 
 export function MonitorsPage() {
-  const { snapshot, act, confirm, toast } = useMeerkat();
+  const { snapshot, act, confirm, toast } = useLabwarden();
   const router = useRouter();
   const params = useSearchParams();
   const [filter, setFilter] = useState<Filter>("all");
@@ -168,7 +168,7 @@ function MonitorDetail({ site, onRemove, compact }: { site: Site; onRemove: (sit
       <div className="cluster cluster--between">
         <div className="stack stack--sm">
           {compact ? null : <h2 className="card__title">{site.name}</h2>}
-          <a className="truncate" href={site.url} target="_blank" rel="noreferrer">
+          <a className="link truncate" href={site.url} target="_blank" rel="noreferrer">
             {site.url}
           </a>
         </div>
@@ -222,7 +222,7 @@ function MonitorDetail({ site, onRemove, compact }: { site: Site; onRemove: (sit
 }
 
 function AddMonitorSheet({ open, onClose, onAdded }: { open: boolean; onClose: () => void; onAdded: (name: string) => void }) {
-  const { act } = useMeerkat();
+  const { act } = useLabwarden();
   const f = t.form;
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");

@@ -6,11 +6,11 @@ import { useEffect, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { StatusIcon } from "@/components/ui/status";
 import { NAV } from "@/lib/nav";
-import { useMeerkat } from "@/lib/store";
+import { useLabwarden } from "@/lib/store";
 import { strings } from "@/lib/strings";
 
 export function Toasts() {
-  const { toasts, dismissToast } = useMeerkat();
+  const { toasts, dismissToast } = useLabwarden();
   return (
     <div className="toasts" role="region" aria-live="polite" aria-label="Notifications">
       {toasts.map((toast) => (
@@ -42,7 +42,7 @@ export function Toasts() {
 }
 
 export function ConfirmDialog() {
-  const { pendingConfirm, settleConfirm } = useMeerkat();
+  const { pendingConfirm, settleConfirm } = useLabwarden();
   return (
     <Dialog
       open={Boolean(pendingConfirm)}
@@ -66,7 +66,7 @@ export function ConfirmDialog() {
 }
 
 export function TokenDialog() {
-  const { tokenRequest, settleToken, prefs, toast } = useMeerkat();
+  const { tokenRequest, settleToken, prefs, toast } = useLabwarden();
   const [value, setValue] = useState("");
 
   useEffect(() => {
@@ -122,7 +122,7 @@ export function TokenDialog() {
 }
 
 export function ShortcutsDialog() {
-  const { shortcutsOpen, setShortcutsOpen } = useMeerkat();
+  const { shortcutsOpen, setShortcutsOpen } = useLabwarden();
   return (
     <Dialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title={strings.shortcuts.title} labelledBy="shortcuts-title">
       <div className="shortcuts">

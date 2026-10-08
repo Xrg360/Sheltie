@@ -85,12 +85,12 @@ def main() -> int:
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
 
-    logging.info("Meerkat started with %ss interval", interval)
+    logging.info("Labwarden started with %ss interval", interval)
     alerts.event(
-        alert_id="meerkat.boot",
-        source="meerkat",
+        alert_id="labwarden.boot",
+        source="labwarden",
         severity="info",
-        title="Meerkat booted",
+        title="Labwarden booted",
         body="Docker container started and monitoring is active.",
         force=True,
     )
@@ -111,7 +111,7 @@ def main() -> int:
 
         stopped.wait(interval)
 
-    logging.info("Meerkat stopped")
+    logging.info("Labwarden stopped")
     return 0
 
 

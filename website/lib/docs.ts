@@ -9,15 +9,16 @@ export type Doc = { slug: string; file: string; title: string; description: stri
 
 // Order here is the order in the docs sidebar.
 export const DOCS: Doc[] = [
-  { slug: "readme", file: "README.md", title: "Getting started", description: "Install Meerkat with Docker, configure monitors and Telegram, and use the API." },
-  { slug: "architecture", file: "docs/ARCHITECTURE.md", title: "Architecture", description: "How Meerkat works today and the outage-resilient architecture it is moving towards." },
+  { slug: "readme", file: "README.md", title: "Getting started", description: "Install Labwarden with Docker, configure monitors and Telegram, and use the API." },
+  { slug: "architecture", file: "docs/ARCHITECTURE.md", title: "Architecture", description: "How Labwarden works today and the outage-resilient architecture it is moving towards." },
   { slug: "roadmap", file: "docs/ROADMAP.md", title: "Roadmap", description: "Known issues, the resilience plan, the contributor backlog and the release timeline." },
-  { slug: "design", file: "DESIGN.md", title: "Design system", description: "Meerkat's UX principles, invariants, Savanna tokens and component rules." },
-  { slug: "competitive-analysis", file: "docs/COMPETITIVE_ANALYSIS.md", title: "Feature comparison", description: "How Meerkat compares with Uptime Kuma, Beszel, Gatus, Netdata and healthchecks.io." },
-  { slug: "ux-competitive-analysis", file: "docs/UX_COMPETITIVE_ANALYSIS.md", title: "UX comparison", description: "How Meerkat's user experience compares with other homelab monitoring tools." },
+  { slug: "design", file: "DESIGN.md", title: "Design system", description: "Labwarden's UX principles, invariants, Ink & Cream tokens and component rules." },
+  { slug: "competitive-analysis", file: "docs/COMPETITIVE_ANALYSIS.md", title: "Feature comparison", description: "How Labwarden compares with Uptime Kuma, Beszel, Gatus, Netdata and healthchecks.io." },
+  { slug: "ux-competitive-analysis", file: "docs/UX_COMPETITIVE_ANALYSIS.md", title: "UX comparison", description: "How Labwarden's user experience compares with other homelab monitoring tools, and what it still lacks." },
+  { slug: "brand", file: "docs/BRAND.md", title: "Name and brand", description: "Why Meerkat became Labwarden, the search plan, the visual identity and how to migrate." },
   { slug: "contributing", file: "CONTRIBUTING.md", title: "Contributing", description: "Set up a development environment and send your first pull request." },
-  { slug: "agents", file: "AGENTS.md", title: "Rules for AI agents", description: "What automated coding agents must and must not change in Meerkat." },
-  { slug: "security", file: "SECURITY.md", title: "Security", description: "How to report vulnerabilities and harden your Meerkat install." },
+  { slug: "agents", file: "AGENTS.md", title: "Rules for AI agents", description: "What automated coding agents must and must not change in Labwarden." },
+  { slug: "security", file: "SECURITY.md", title: "Security", description: "How to report vulnerabilities and harden your Labwarden install." },
 ];
 
 const bySource = new Map(DOCS.map((doc) => [doc.file, doc.slug]));
@@ -59,7 +60,7 @@ function rewriteSrc(src: string, sourceFile: string): string {
   const resolved = parts.join("/");
   if (resolved.startsWith("docs/assets/screenshots/")) return `/screenshots/${resolved.split("/").pop()}`;
   if (resolved === "src/app/icon.svg") return "/icon.svg";
-  return `https://raw.githubusercontent.com/xrg360/meerkat/master/${resolved}`;
+  return `https://raw.githubusercontent.com/xrg360/labwarden/master/${resolved}`;
 }
 
 export function renderDoc(doc: Doc): { html: string; headings: Array<{ id: string; text: string; depth: number }>; hasMermaid: boolean } {

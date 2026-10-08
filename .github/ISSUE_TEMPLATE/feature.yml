@@ -1,12 +1,12 @@
 name: Feature request
-description: Suggest an improvement to Meerkat
+description: Suggest an improvement to Labwarden
 labels: ["enhancement", "triage"]
 body:
   - type: textarea
     id: problem
     attributes:
       label: What problem does this solve?
-      description: Describe the situation in your homelab where Meerkat falls short.
+      description: Describe the situation in your homelab where Labwarden falls short.
     validations:
       required: true
   - type: textarea

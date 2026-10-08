@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { Meter, Sparkline, Stat } from "@/components/ui/data";
 import { Card, PageHeader, SkeletonRows } from "@/components/ui/layout";
 import { meterTone } from "@/lib/insights";
-import { useMeerkat } from "@/lib/store";
+import { useLabwarden } from "@/lib/store";
 import { strings } from "@/lib/strings";
 
 const t = strings.host;
@@ -22,7 +22,7 @@ function MetricCard({ title, icon, value, series, suffix = "%", max = 100, warn 
 }
 
 export function HostPage() {
-  const { snapshot, metrics, act, confirm } = useMeerkat();
+  const { snapshot, metrics, act, confirm } = useLabwarden();
   const health = snapshot?.health ?? null;
 
   const busy = health

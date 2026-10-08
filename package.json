@@ -1,12 +1,12 @@
 {
-  "name": "meerkat-monitor",
+  "name": "labwarden",
   "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 8710",
-    "dev:demo": "NEXT_PUBLIC_MEERKAT_DEMO=1 next dev -p 8710",
+    "dev:demo": "NEXT_PUBLIC_LABWARDEN_DEMO=1 next dev -p 8710",
     "build": "next build",
-    "build:demo": "MEERKAT_STATIC_EXPORT=1 MEERKAT_BASE_PATH=${MEERKAT_BASE_PATH-/demo} next build",
+    "build:demo": "LABWARDEN_STATIC_EXPORT=1 LABWARDEN_BASE_PATH=${LABWARDEN_BASE_PATH-/demo} next build",
     "start": "next start -p 8710",
     "typecheck": "tsc --noEmit",
     "check:tokens": "node scripts/check-tokens.mjs",

@@ -36,8 +36,8 @@
 
 .brand__name {
   font-size: var(--text-lg);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: var(--weight-display);
+  letter-spacing: var(--tracking-display);
 }
 
 .brand__tag {
@@ -76,6 +76,7 @@
 .nav__item[aria-current="page"] {
   background: var(--accent-soft);
   color: var(--accent-text);
+  font-weight: 650;
 }
 
 .nav__count {
@@ -93,6 +94,7 @@
 
 .sidebar__footer a {
   color: var(--text-2);
+  text-decoration: none;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -193,8 +195,8 @@
   align-items: center;
   gap: var(--space-3);
   font-size: var(--text-2xl);
-  font-weight: 700;
-  letter-spacing: -0.025em;
+  font-weight: var(--weight-display);
+  letter-spacing: var(--tracking-display);
 }
 
 .page-meta {
@@ -1625,12 +1627,15 @@ dialog[open] {
     font-weight: 600;
   }
 
+  .bottom-tabs a,
   .bottom-tabs a:hover {
     text-decoration: none;
   }
 
   .bottom-tabs [aria-current="page"] {
+    background: var(--accent-soft);
     color: var(--accent-text);
+    font-weight: 700;
   }
 
   dialog.sheet {
@@ -1723,30 +1728,13 @@ dialog[open] {
 /* ---------- Logo (brand tokens only) ---------- */
 
 .logo__bg {
-  fill: var(--brand-sky);
+  fill: var(--brand-ochre);
 }
 
-.logo__ground {
-  fill: var(--brand-fur-dark);
-  opacity: 0.55;
-}
-
-.logo__tail {
-  stroke: var(--brand-fur-dark);
-}
-
-.logo__fur {
-  fill: var(--brand-fur);
-}
-
-.logo__fur-dark {
-  fill: var(--brand-fur-dark);
-}
-
-.logo__mask {
+.logo__shield {
   fill: var(--brand-ink);
 }
 
-.logo__eye {
-  fill: var(--brand-fur);
+.logo__pulse {
+  stroke: var(--brand-cream);
 }

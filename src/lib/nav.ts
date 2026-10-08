@@ -16,8 +16,8 @@ export const NAV: NavItem[] = [
   { href: "/settings", label: strings.nav.settings, icon: Settings, key: "s", mobile: false },
 ];
 
-export const REPO_URL = "https://github.com/xrg360/meerkat";
-export const DOCS_URL = "https://meerkat.simplewebsite.in/docs/";
+export const REPO_URL = "https://github.com/xrg360/labwarden";
+export const DOCS_URL = "https://labwarden.simplewebsite.in/docs/";
 
 export function isActive(pathname: string, href: string): boolean {
   const path = pathname.replace(/\/$/, "") || "/";

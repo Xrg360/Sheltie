@@ -11,7 +11,7 @@ import requests
 from monitors.alerts import clear_silence, parse_duration, set_silence
 
 
-HELP_TEXT = """Meerkat commands:
+HELP_TEXT = """Labwarden commands:
 
 /status - Show current monitor state
 /health - Show CPU RAM disk and temperature
@@ -27,7 +27,7 @@ HELP_TEXT = """Meerkat commands:
 /help - Show this help"""
 
 
-# Commands that change something. If they were queued while Meerkat was offline,
+# Commands that change something. If they were queued while Labwarden was offline,
 # running them late could restart a container hours after it was wanted.
 DESTRUCTIVE_COMMANDS = {"/restart", "/clearcache", "/addsite", "/removesite", "/silence", "/resume"}
 
@@ -180,7 +180,7 @@ class TelegramCommandMonitor:
             if command in DESTRUCTIVE_COMMANDS:
                 sent_label = datetime.fromtimestamp(sent_at).strftime("%Y-%m-%d %H:%M")
                 self.notifier.send(
-                    f"⏳ Ignored {command} sent at {sent_label} ({age / 60:.0f} min ago) while Meerkat was offline. "
+                    f"⏳ Ignored {command} sent at {sent_label} ({age / 60:.0f} min ago) while Labwarden was offline. "
                     "Send it again if it is still needed.",
                     force=True,
                 )
@@ -224,7 +224,7 @@ class TelegramCommandMonitor:
 
         return "\n".join(
             [
-                "🦫 Meerkat status",
+                "🦫 Labwarden status",
                 "",
                 f"🔔 Alerts: {'silenced' if status['alerts_silenced'] else 'active'}",
                 f"🚨 Active alerts: {len(status['active_alerts'])}",

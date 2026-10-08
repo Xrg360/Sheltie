@@ -8,7 +8,7 @@ from unittest.mock import patch
 from monitors import __version__
 from monitors.actions import ActionService
 from monitors.alerts import clear_silence, set_silence, silence_active
-from monitors.api import GENERATED_TOKEN_KEY, ApiServer, resolve_action_token
+from monitors.api import GENERATED_TOKEN_KEY, LEGACY_ACTION_TOKEN_HEADER, ApiServer, metrics_payload, resolve_action_token
 from monitors.autofix import USER_STOPPED_KEY
 from monitors.status import StatusService
 from monitors.telegram import TelegramNotifier
@@ -61,8 +61,16 @@ class ResolveActionTokenTests(unittest.TestCase):
         self.assertEqual(state.get(GENERATED_TOKEN_KEY), first)
 
     def test_prefers_configured_token(self):
-        with patch.dict(os.environ, {"MEERKAT_ACTION_TOKEN": "from-env"}, clear=True):
+        with patch.dict(os.environ, {"LABWARDEN_ACTION_TOKEN": "from-env"}, clear=True):
             self.assertEqual(resolve_action_token({"actions": {"token": "from-config"}}, FakeState()), "from-env")
+
+    def test_legacy_meerkat_env_var_still_works(self):
+        with patch.dict(os.environ, {"MEERKAT_ACTION_TOKEN": "legacy"}, clear=True):
+            self.assertEqual(resolve_action_token({}, FakeState()), "legacy")
+
+    def test_new_env_var_wins_over_legacy(self):
+        with patch.dict(os.environ, {"LABWARDEN_ACTION_TOKEN": "new", "MEERKAT_ACTION_TOKEN": "legacy"}, clear=True):
+            self.assertEqual(resolve_action_token({}, FakeState()), "new")
 
 
 class ApiServerTests(unittest.TestCase):
@@ -79,10 +87,10 @@ class ApiServerTests(unittest.TestCase):
         self.server.stop()
         self.server.server.server_close()
 
-    def request(self, path, method="GET", token=None):
+    def request(self, path, method="GET", token=None, header="X-Labwarden-Action-Token"):
         request = urllib.request.Request(f"{self.base}{path}", method=method, data=b"{}" if method == "POST" else None)
         if token:
-            request.add_header("X-Meerkat-Action-Token", token)
+            request.add_header(header, token)
         try:
             with urllib.request.urlopen(request, timeout=5) as response:
                 return response.status, response.read()
@@ -107,6 +115,35 @@ class ApiServerTests(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertEqual(self.actions.cleared, 1)
+
+    def test_actions_accept_legacy_token_header(self):
+        token = self.server.action_token
+        status, _body = self.request("/api/actions/clear-ram-cache", method="POST", token=token, header=LEGACY_ACTION_TOKEN_HEADER)
+
+        self.assertEqual(status, 200)
+        self.assertEqual(self.actions.cleared, 1)
+
+
+class MetricsTests(unittest.TestCase):
+    def test_emits_new_and_deprecated_metric_names(self):
+        service = type(
+            "Status",
+            (),
+            {
+                "health": lambda self: {"cpu_percent": 10, "ram_percent": 20, "disk_percent": 30},
+                "status": lambda self: {"internet_up": True, "active_alerts": []},
+                "network": lambda self: {"interfaces": {}},
+                "sites": lambda self: {"up": 1, "down": 0, "sites": [{"name": "labwarden_site", "up": True, "latency_ms": 12}]},
+            },
+        )()
+
+        payload = metrics_payload(service)
+
+        self.assertIn("labwarden_cpu_percent 10", payload)
+        self.assertIn("meerkat_cpu_percent 10", payload)
+        self.assertIn("# TYPE meerkat_sites_up gauge", payload)
+        # Only the metric prefix is renamed, never label values.
+        self.assertIn('meerkat_site_up{name="labwarden_site"} 1', payload)
 
 
 class SilenceTests(unittest.TestCase):
@@ -137,6 +174,11 @@ class SilenceTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertIsNotNone(result["silenced_until"])
         self.assertTrue(service.resume_alerts()["ok"])
+
+    def test_notifier_reads_legacy_env_vars(self):
+        with patch.dict(os.environ, {"MEERKAT_TELEGRAM_BOT_TOKEN": "t", "MEERKAT_TELEGRAM_CHAT_ID": "1"}, clear=True):
+            notifier = TelegramNotifier({}, FakeState())
+        self.assertTrue(notifier.enabled)
 
     def test_notifier_skips_messages_while_silenced(self):
         state = FakeState()
@@ -169,17 +211,17 @@ class StatusPayloadTests(unittest.TestCase):
         state = FakeState()
         state.set(USER_STOPPED_KEY, ["db"])
         state.set("auto_heal.containers.active", ["web"])
-        service = StatusService({"actions": {"blocked_containers": ["meerkat"]}}, state, None)
+        service = StatusService({"actions": {"blocked_containers": ["labwarden"]}}, state, None)
         containers = [
             type("C", (), {"name": name, "status": "running", "image": type("I", (), {"tags": ["x:1"]})()})()
-            for name in ("meerkat", "db", "web")
+            for name in ("labwarden", "db", "web")
         ]
         with patch("monitors.status.docker.from_env") as from_env:
             from_env.return_value.containers.list.return_value = containers
             payload = service.docker()
 
         flags = {c["name"]: (c["blocked"], c["user_stopped"], c["auto_heal_tracked"]) for c in payload["containers"]}
-        self.assertEqual(flags["meerkat"], (True, False, False))
+        self.assertEqual(flags["labwarden"], (True, False, False))
         self.assertEqual(flags["db"], (False, True, False))
         self.assertEqual(flags["web"], (False, False, True))
 

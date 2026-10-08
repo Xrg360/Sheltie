@@ -1,5 +1,5 @@
 // A believable homelab used by the public live demo, screenshots and UI development
-// without a backend (NEXT_PUBLIC_MEERKAT_DEMO=1). The story: a power cut last night,
+// without a backend (NEXT_PUBLIC_LABWARDEN_DEMO=1). The story: a power cut last night,
 // an auto-healed container this morning, and the blog is down right now.
 
 import { safeName } from "./format";
@@ -90,7 +90,7 @@ const state: DemoState = {
     { name: "blog", status: "exited", image: "ghost:5-alpine" },
     { name: "cloudflared", status: "running", image: "cloudflare/cloudflared:2024.9" },
     { name: "minecraft", status: "exited", image: "itzg/minecraft-server:java21", user_stopped: true },
-    { name: "meerkat", status: "running", image: "ghcr.io/xrg360/meerkat:0.2.0", blocked: true },
+    { name: "labwarden", status: "running", image: "ghcr.io/xrg360/labwarden:0.2.0", blocked: true },
   ].map((container) => ({
     ...container,
     auto_heal_tracked: !container.user_stopped && !container.blocked,
@@ -143,11 +143,11 @@ const state: DemoState = {
     },
     {
       ts: iso(9 * HOUR + 5 * MIN),
-      alert_id: "meerkat.boot",
-      source: "meerkat",
+      alert_id: "labwarden.boot",
+      source: "labwarden",
       severity: "info",
       status: "event",
-      title: "Meerkat booted",
+      title: "Labwarden booted",
       body: "Docker container started and monitoring is active.",
     },
     {

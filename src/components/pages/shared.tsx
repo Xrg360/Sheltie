@@ -7,12 +7,12 @@ import { StatusIcon } from "@/components/ui/status";
 import { absoluteTime, relativeTime } from "@/lib/format";
 import { eventTone } from "@/lib/insights";
 import type { Problem } from "@/lib/insights";
-import { useMeerkat } from "@/lib/store";
+import { useLabwarden } from "@/lib/store";
 import { strings } from "@/lib/strings";
 import type { EventItem } from "@/lib/types";
 
 export function TimeAgo({ value }: { value: string | number | null | undefined }) {
-  useMeerkat(); // re-render with the shared 1s clock so relative times stay honest
+  useLabwarden(); // re-render with the shared 1s clock so relative times stay honest
   if (value == null) return null;
   const iso = typeof value === "number" ? new Date(value < 1e12 ? value * 1000 : value).toISOString() : value;
   return (
@@ -44,7 +44,7 @@ export function EventRow({ event, compact }: { event: EventItem; compact?: boole
 }
 
 export function ProblemItem({ problem }: { problem: Problem }) {
-  const { act, confirm } = useMeerkat();
+  const { act, confirm } = useLabwarden();
   return (
     <div className="attention">
       <StatusIcon tone={problem.tone} size={22} label={problem.tone === "bad" ? "Problem" : "Warning"} />

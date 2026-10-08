@@ -1,7 +1,7 @@
 name: Website
 
 # Builds the public website (website/) plus the live demo (the real dashboard in demo mode)
-# and deploys them to GitHub Pages at https://meerkat.simplewebsite.in.
+# and deploys them to GitHub Pages at https://labwarden.simplewebsite.in.
 on:
   push:
     branches: [master]
@@ -30,7 +30,7 @@ jobs:
     outputs:
       pages_enabled: ${{ steps.pages.outputs.enabled }}
     env:
-      SITE_URL: ${{ vars.SITE_URL || 'https://meerkat.simplewebsite.in' }}
+      SITE_URL: ${{ vars.SITE_URL || 'https://labwarden.simplewebsite.in' }}
     steps:
       # GITHUB_TOKEN cannot turn Pages on, so until the owner does, build the site
       # (to catch regressions) but skip deployment with a clear warning instead of failing.
@@ -46,8 +46,8 @@ jobs:
               if (error.status !== 404) throw error;
               core.setOutput("enabled", "false");
               const help = "GitHub Pages is not enabled, so the site was built but not deployed. " +
-                "Enable it in Settings → Pages → Source: GitHub Actions, set the custom domain to meerkat.simplewebsite.in, " +
-                "add the DNS record CNAME meerkat → xrg360.github.io, then re-run this workflow.";
+                "Enable it in Settings → Pages → Source: GitHub Actions, set the custom domain to labwarden.simplewebsite.in, " +
+                "add the DNS record CNAME labwarden → xrg360.github.io, then re-run this workflow.";
               core.warning(help);
               await core.summary.addHeading("Website built, deployment skipped").addRaw(help).write();
             }

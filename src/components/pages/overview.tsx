@@ -9,14 +9,14 @@ import { Card, EmptyState, PageHeader, Skeleton, SkeletonRows } from "@/componen
 import { StatusPill, toneFromBool, upDownLabel } from "@/components/ui/status";
 import { clockTime, uptime } from "@/lib/format";
 import { healthyChecks, lastIncidentAge, meterTone, overallTone, problems, sinceLastVisit } from "@/lib/insights";
-import { useMeerkat } from "@/lib/store";
+import { useLabwarden } from "@/lib/store";
 import { strings } from "@/lib/strings";
 import type { EventItem } from "@/lib/types";
 
 const t = strings.overview;
 
 export function OverviewPage() {
-  const { snapshot, connection, lastVisit, prefs } = useMeerkat();
+  const { snapshot, connection, lastVisit, prefs } = useLabwarden();
   const list = problems(snapshot);
   const tone = snapshot ? overallTone(list) : "unknown";
   const events = snapshot?.events ?? snapshot?.status?.recent_events ?? null;
@@ -99,7 +99,7 @@ export function OverviewPage() {
 }
 
 function HostVitals() {
-  const { snapshot, metrics } = useMeerkat();
+  const { snapshot, metrics } = useLabwarden();
   const health = snapshot?.health;
   if (!health) return null;
   const rows = [
@@ -163,7 +163,7 @@ function SinceLastVisit({ events, lastVisit }: { events: EventItem[] | null; las
 }
 
 function PinnedMonitors({ pinned }: { pinned: string[] }) {
-  const { snapshot } = useMeerkat();
+  const { snapshot } = useLabwarden();
   const sites = snapshot?.sites?.sites;
   const chosen = sites ? (pinned.length ? sites.filter((site) => pinned.includes(site.name)) : [...sites].sort((a, b) => Number(a.up) - Number(b.up)).slice(0, 4)) : null;
   return (
@@ -209,12 +209,12 @@ function PinnedMonitors({ pinned }: { pinned: string[] }) {
 }
 
 function SetupChecklist() {
-  const { snapshot, prefs } = useMeerkat();
+  const { snapshot, prefs } = useLabwarden();
   if (!snapshot?.status) return null;
   const notificationsOn = typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted" && prefs.desktop;
   const steps = [
     { done: (snapshot.sites?.total ?? 0) > 0, label: t.setupSteps.monitor, href: "/monitors?add=1" },
-    { done: Boolean(snapshot.status.telegram_enabled), label: t.setupSteps.telegram, href: "https://meerkat.simplewebsite.in/docs/readme/#telegram-botfather-commands" },
+    { done: Boolean(snapshot.status.telegram_enabled), label: t.setupSteps.telegram, href: "https://labwarden.simplewebsite.in/docs/readme/#telegram-botfather-commands" },
     { done: Boolean(prefs.token), label: t.setupSteps.token, href: "/settings#token" },
     { done: notificationsOn, label: t.setupSteps.notify, href: "/settings#notifications" },
   ];

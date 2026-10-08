@@ -53,7 +53,7 @@ def check_sites(config: dict[str, Any], state: Any, alerts: Any) -> None:
                 url,
                 timeout=timeout,
                 allow_redirects=bool(site.get("follow_redirects", True)),
-                headers={"User-Agent": "Meerkat/1.0"},
+                headers={"User-Agent": "Labwarden/1.0"},
             )
             latency_ms = round((time.perf_counter() - started) * 1000)
             status_code = response.status_code

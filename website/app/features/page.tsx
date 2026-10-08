@@ -5,7 +5,7 @@ import { FEATURES } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Features",
-  description: "Everything Meerkat does for your homelab: answer-first dashboard, since-your-last-visit, Docker auto-heal, network failover, website checks, host health, Telegram chat-ops, and what is planned next.",
+  description: "Everything Labwarden does for your homelab: answer-first dashboard, since-your-last-visit, Docker auto-heal, network failover, website checks, host health, Telegram chat-ops, and what is planned next.",
   alternates: { canonical: "/features/" },
 };
 
@@ -18,7 +18,7 @@ export default function FeaturesPage() {
         <div className="container">
           <div className="section__head">
             <span className="eyebrow">Features</span>
-            <h1>Everything Meerkat does today</h1>
+            <h1>Everything Labwarden does today</h1>
             <p className="muted">One small container watches your websites, containers, network and host, and turns it all into plain answers.</p>
           </div>
           <FeatureGrid features={shipped} />

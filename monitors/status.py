@@ -78,7 +78,7 @@ class StatusService:
 
     def docker(self) -> dict[str, Any]:
         action_config = self.config.get("actions", {}) or {}
-        blocked = set(action_config.get("blocked_containers") or ["meerkat"])
+        blocked = set(action_config.get("blocked_containers") or ["labwarden", "meerkat"])
         user_stopped = set(self.state.get(USER_STOPPED_KEY, []))
         tracked = set(self.state.get("auto_heal.containers.active", []))
         try:

@@ -3,9 +3,10 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
+import { fileURLToPath } from "node:url";
 
 const BUDGET_KB = 250;
-const out = new URL("../out", import.meta.url).pathname;
+const out = fileURLToPath(new URL("../out", import.meta.url));
 if (!existsSync(out)) {
   console.error("No ./out directory. Run `npm run build:demo` first.");
   process.exit(1);
