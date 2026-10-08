@@ -5,6 +5,8 @@ import time
 from urllib.parse import urlparse
 from typing import Any
 
+from monitors.alerts import clear_silence, set_silence
+
 
 class ActionService:
     def __init__(self, config: dict[str, Any], state: Any, history: Any) -> None:
@@ -147,6 +149,25 @@ class ActionService:
             return {"ok": False, "error": f"runtime site not found: {name}"}
         self.state.set("sites.custom", remaining)
         return {"ok": True, "message": f"Site monitor removed: {name}"}
+
+    def silence_alerts(self, minutes: Any = None) -> dict[str, Any]:
+        if not self.enabled:
+            return {"ok": False, "error": "actions are disabled"}
+        try:
+            duration = float(minutes) if minutes not in (None, "") else None
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "minutes must be a number"}
+        if duration is not None and duration <= 0:
+            return {"ok": False, "error": "minutes must be greater than 0"}
+        until = set_silence(self.state, duration)
+        message = f"Alerts silenced for {duration:g} minutes" if until else "Alerts silenced until resumed"
+        return {"ok": True, "message": message, "silenced_until": until}
+
+    def resume_alerts(self) -> dict[str, Any]:
+        if not self.enabled:
+            return {"ok": False, "error": "actions are disabled"}
+        clear_silence(self.state)
+        return {"ok": True, "message": "Alerts resumed"}
 
     def clear_events(self) -> dict[str, Any]:
         if not self.enabled:

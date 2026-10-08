@@ -1,39 +1,106 @@
-# Meerkat
+<p align="center">
+  <img src="src/app/icon.svg" width="88" height="88" alt="Meerkat logo: a meerkat standing lookout">
+</p>
 
-A lightweight infrastructure monitoring and alerting agent for Docker homelabs.
+<h1 align="center">Meerkat</h1>
 
-Meerkat watches network state, internet reachability, Docker container events, and basic system health. It sends Telegram alerts only when something changes state, so restarts and steady-state checks do not produce repeated noise.
+<p align="center">
+  <strong>Know what happened while you were offline.</strong><br>
+  Open-source monitoring for Docker homelabs: websites, containers, network failover and host health,<br>
+  with quiet Telegram alerts, safe auto-heal, and a calm dashboard that tells you what's wrong and how to fix it.
+</p>
+
+<p align="center">
+  <a href="https://github.com/xrg360/meerkat/actions/workflows/ci.yml"><img src="https://github.com/xrg360/meerkat/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License: Apache-2.0"></a>
+  <a href="https://github.com/xrg360/meerkat/stargazers"><img src="https://img.shields.io/github/stars/xrg360/meerkat?style=flat" alt="GitHub stars"></a>
+  <a href="https://meerkat.simplewebsite.in/demo/"><img src="https://img.shields.io/badge/live-demo-4f46e5.svg" alt="Live demo"></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/contributions-welcome-brightgreen.svg" alt="Contributions welcome"></a>
+</p>
+
+<p align="center">
+  <a href="https://meerkat.simplewebsite.in/demo/"><strong>Try the live demo</strong></a> ·
+  <a href="https://meerkat.simplewebsite.in">Website</a> ·
+  <a href="https://meerkat.simplewebsite.in/docs/">Docs</a> ·
+  <a href="docs/ROADMAP.md">Roadmap</a> ·
+  <a href="CONTRIBUTING.md">Contribute</a>
+</p>
+
+![Meerkat Overview: "2 problems need attention", each with a fix-it button, and what happened since your last visit](docs/assets/screenshots/overview-light.png)
 
 ## Why Meerkat?
 
-Meerkats are natural lookouts: one watches the horizon, warns the group early, and stays useful by being alert without creating constant panic. That maps well to this project’s goal: a small homelab agent that keeps watch over infrastructure, sends early state-change alerts, and avoids noisy repeated notifications.
+Most dashboards show you numbers and leave the thinking to you. Meerkat answers three questions, in this order, on any screen:
+
+1. **Is anything wrong?** Every page opens with a plain sentence: "2 problems need attention", "7 of 8 sites up", "Internet is unreachable".
+2. **What happened while I was away?** "Since your last visit" summarizes outages, recoveries, crashed containers and automatic repairs.
+3. **What should I do?** Every problem comes with the button that fixes it: start the crashed container, open the failing site, silence alerts for an hour.
+
+Meerkats are natural lookouts: one watches the horizon and warns the group early, without constant panic. Meerkat does the same for your homelab.
+
+## Quick start
+
+```bash
+mkdir -p meerkat/config meerkat/state && cd meerkat
+curl -fsSL https://github.com/xrg360/meerkat/raw/master/config/config.yml -o config/config.yml
+docker run -d --name meerkat --restart unless-stopped --privileged --network host \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -v $(pwd)/config:/app/config -v $(pwd)/state:/app/state \
+  ghcr.io/xrg360/meerkat:latest
+```
+
+Open `http://<server-ip>:8710`. The action token is printed once in `docker logs meerkat`. Add Telegram with two environment variables (see [Telegram](#telegram-botfather-commands)).
 
 ## Features
 
-- Ethernet disconnected/restored
-- Wi-Fi disconnected/restored
-- Active default route changes
-- Internet lost/restored using `1.1.1.1` and `8.8.8.8`
-- Docker container created, started, stopped, restarted, died, and removed events
-- Website uptime monitoring with HTTP status, latency, redirects, and optional keyword checks
-- CPU, RAM, disk, and CPU temperature threshold alerts
-- Persistent state in `state/state.json`
-- SQLite event history in `state/history.db`
-- Alert duration and cooldown controls
-- Auto-heal loop every 5 minutes for previously active Docker containers, Ethernet, and Wi-Fi
-- Telegram commands for status, health, network, Docker, quick actions, silence, and resume
-- REST API and Prometheus metrics from the Python monitor API
-- Next.js web app with Home, Monitoring, and Settings pages
-- In-app alert popups and optional browser desktop notifications
-- Browser-local settings for theme, refresh interval, action token, and pinned Home monitors
+| | |
+|---|---|
+| **Answer-first dashboard** | Overview, Incidents, Monitors, Containers, Network, Host and Settings. Light, dark and system themes. Works great on phones. |
+| **Since your last visit** | A short report of everything that happened while you were away. |
+| **Fix it from the alert** | Problems carry actions, protected by an action token and a confirmation. Undo when you remove a monitor. |
+| **Docker events and auto-heal** | Container created/started/stopped/died events. Crashed containers are restarted; containers you stopped on purpose are left alone. |
+| **Network failover awareness** | Ethernet and Wi-Fi state, default-route changes and internet reachability, shown as a connection path. |
+| **Website and service checks** | HTTP status, latency, redirects and keyword checks, with uptime bars, average and p95 response time. |
+| **Host health** | CPU, RAM, disk and CPU temperature with thresholds, durations and cooldowns. |
+| **Two-way Telegram** | State-change-only alerts plus `/status`, `/docker`, `/restart`, `/silence` and more. Stale commands queued during an outage are ignored safely. |
+| **Silence with expiry** | Silence alerts for 1 hour, 4 hours or until resumed, from the dashboard or Telegram. |
+| **Fast for experts** | `⌘K` command palette, `g`-shortcuts, REST API and Prometheus `/metrics`. |
+| **Private and accessible** | No telemetry or external requests from the dashboard. WCAG 2.2 AA checked in CI on every page. |
 
-## Server Defaults
+Planned next: an offline alert outbox with a "while you were away" digest, power-cut forensics on boot, an off-site Sentinel, UPS awareness and a plugin system. See the [roadmap](docs/ROADMAP.md).
 
-The default config is already set for your server:
+<table>
+  <tr>
+    <td width="50%"><img src="docs/assets/screenshots/monitors-light.png" alt="Monitors page with uptime bars, response-time chart and the failing site's last error"></td>
+    <td width="50%"><img src="docs/assets/screenshots/network-dark.png" alt="Network page in dark mode showing the connection path from server to internet"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/assets/screenshots/containers-light.png" alt="Containers page with status, a container stopped on purpose and restart buttons"></td>
+    <td><img src="docs/assets/screenshots/incidents-light.png" alt="Incidents timeline grouped by day with filters"></td>
+  </tr>
+</table>
 
-- Ethernet: `enp2s0`
-- Wi-Fi: `wlp1s0`
-- Timezone: `Asia/Kolkata`
+## How it compares
+
+| | Uptime Kuma | Beszel | Netdata | **Meerkat** |
+|---|---|---|---|---|
+| Website / endpoint checks | ✅ many types | — | partial | ✅ |
+| Host health | — | ✅ | ✅✅ | ✅ |
+| Docker crash events + auto-heal | — | stats only | stats | ✅ intent-aware |
+| Network failover awareness | — | — | partial | ✅ |
+| "What happened while I was away" | per monitor | — | alert log | ✅ |
+| Fix-it actions from the dashboard and Telegram | — | — | — | ✅ |
+| Public status pages | ✅✅ | — | — | planned |
+
+Meerkat is designed to run alongside these tools. Full comparisons: [features](docs/COMPETITIVE_ANALYSIS.md) and [UX](docs/UX_COMPETITIVE_ANALYSIS.md).
+
+## Defaults to change
+
+The sample config and Compose file use example values. Change them to match your host:
+
+- Ethernet: `enp2s0` (find yours with `ip -br link`)
+- Wi-Fi: `wlp1s0` (remove the `network` entries you do not have; both are optional)
+- Timezone: `Asia/Kolkata` (`TZ` in `compose.yml`)
 
 ## Docker Compose
 
@@ -85,11 +152,9 @@ docker compose up -d
 Web app and API:
 
 ```text
-http://<server-ip>:8710/
-http://<server-ip>:8710/monitoring
-http://<server-ip>:8710/settings
-http://<server-ip>:8711/api/status
-http://<server-ip>:8711/metrics
+http://<server-ip>:8710/            Dashboard (Overview, Incidents, Monitors, Containers, Network, Host, Settings)
+http://<server-ip>:8711/api/status  Python API
+http://<server-ip>:8711/metrics     Prometheus metrics
 ```
 
 The Next.js web app is served on port `8710`. The Python monitor API runs internally on `8711`, and the web app proxies backend requests through `/api/meerkat/*` using `MEERKAT_API_BASE=http://127.0.0.1:8711`.
@@ -173,7 +238,15 @@ Open:
 http://127.0.0.1:8710/
 ```
 
-If the Python API is not running, the Next.js app still loads and shows a backend-unavailable state.
+If the Python API is not running, the dashboard still loads, shows a clear "Can't reach Meerkat" banner and keeps the last known state.
+
+To work on the dashboard without a backend, use simulated data:
+
+```bash
+npm run dev:demo
+```
+
+Before changing the UI, read [DESIGN.md](DESIGN.md).
 
 ## Telegram BotFather Commands
 
@@ -194,6 +267,8 @@ silence - Pause monitor alerts
 resume - Resume monitor alerts
 help - Show available commands
 ```
+
+Commands that change something (`/restart`, `/clearcache`, `/addsite`, `/removesite`, `/silence`, `/resume`) are ignored if they are older than `telegram.command_max_age` (5 minutes by default). This stops a command sent during an outage from running hours later. Meerkat replies to say the command was ignored.
 
 In BotFather:
 
@@ -241,6 +316,7 @@ If you see `Telegram is disabled`, the container did not receive the token/chat 
 telegram:
   bot_token:
   chat_id:
+  command_max_age: 5m  # destructive commands older than this are ignored
 
 network:
   ethernet: enp2s0
@@ -274,7 +350,7 @@ alerting:
 api:
   enabled: true
   host: 0.0.0.0
-  port: 8710
+  port: 8711
 
 actions:
   enabled: true
@@ -374,22 +450,18 @@ POST /api/actions/docker/restart
 POST /api/actions/sites/add
 POST /api/actions/sites/remove
 POST /api/actions/events/clear
+POST /api/actions/alerts/silence    {"minutes": 60}  (omit minutes to silence until resumed)
+POST /api/actions/alerts/resume
 
-Next.js proxy:
+Next.js proxy (same paths under /api/meerkat/):
 
-GET  /api/meerkat/status
-GET  /api/meerkat/health
-GET  /api/meerkat/docker
-GET  /api/meerkat/sites
-POST /api/meerkat/actions/sites/add
-POST /api/meerkat/actions/sites/remove
-POST /api/meerkat/actions/docker/restart
-POST /api/meerkat/actions/clear-ram-cache
+GET  /api/meerkat/status | health | network | docker | sites | events
+POST /api/meerkat/actions/...
 ```
 
 `/metrics` is Prometheus-compatible.
 
-Action endpoints require `X-Meerkat-Action-Token`. Set it with `MEERKAT_ACTION_TOKEN` or `actions.token`.
+Action endpoints always require `X-Meerkat-Action-Token`. Set it with `MEERKAT_ACTION_TOKEN` or `actions.token`. If neither is set, Meerkat generates a random token on first start, prints it once in `docker logs meerkat`, and stores it in `state/state.json` under `api.action_token`.
 
 `POST /api/actions/docker/restart` expects JSON:
 
@@ -414,9 +486,9 @@ For security, action endpoints are intended for trusted LAN deployments or rever
 
 Meerkat runs an internal cron-style auto-heal loop every 5 minutes by default:
 
-- Docker containers that were previously observed as `running` are started again if they are later found stopped, exited, or dead.
-- Configured Ethernet and Wi-Fi interfaces that were previously observed as up are bounced with `ip link set dev <interface> down/up` if they later drop.
-- Repairs are recorded in event history and sent through Telegram.
+- Docker containers that were previously observed as `running` are started again if they are later found stopped, exited, or dead. Containers you stop on purpose (`docker stop`, `docker compose stop`) are left alone until they are started again.
+- Configured Ethernet and Wi-Fi interfaces that were previously observed as up are bounced with `ip link set dev <interface> down/up` if they later drop. An Ethernet port with no carrier (unplugged cable) or an interface that no longer exists is not bounced.
+- Repairs are recorded in event history and sent through Telegram. `/silence` mutes these messages too.
 - `actions.blocked_containers` is respected, so Meerkat does not restart itself by default.
 
 The Docker container must run with host networking and enough privileges to repair interfaces. The provided Compose file already uses `privileged: true` and `network_mode: host`.
@@ -433,3 +505,19 @@ On first run Meerkat records current monitor state without sending fake recovery
 - Docker lifecycle event
 
 The state file lives at `state/state.json`.
+
+## Contributing
+
+Meerkat is built in the open and new contributors are very welcome.
+
+- **Good first issues:** new monitors (TLS expiry, DNS, SMART, UPS…), notifiers (Discord, ntfy, Gotify…) and repair actions are small, self-contained and listed in the [roadmap backlog](docs/ROADMAP.md#7-missing-features--contributor-backlog).
+- **Start here:** [CONTRIBUTING.md](CONTRIBUTING.md) for setup and checks, [DESIGN.md](DESIGN.md) before any UI work, [AGENTS.md](AGENTS.md) if you use AI coding tools.
+- **Security issues:** report privately as described in [SECURITY.md](SECURITY.md).
+
+If Meerkat is useful to you, a ⭐ on GitHub helps other homelabbers find it.
+
+[![Star history](https://api.star-history.com/svg?repos=xrg360/meerkat&type=Date)](https://star-history.com/#xrg360/meerkat&Date)
+
+## License
+
+Meerkat is licensed under the [Apache License 2.0](LICENSE).

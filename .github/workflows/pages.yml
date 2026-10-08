@@ -1,0 +1,69 @@
+name: Website
+
+# Builds the public website (website/) plus the live demo (the real dashboard in demo mode)
+# and deploys them to GitHub Pages at https://meerkat.simplewebsite.in.
+on:
+  push:
+    branches: [master]
+    paths:
+      - "website/**"
+      - "src/**"
+      - "docs/**"
+      - "*.md"
+      - "package*.json"
+      - "next.config.ts"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      SITE_URL: ${{ vars.SITE_URL || 'https://meerkat.simplewebsite.in' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            website/package-lock.json
+      - name: Build live demo
+        run: |
+          npm ci
+          npm run build:demo
+      - name: Build website
+        working-directory: website
+        run: |
+          npm ci
+          npm run build
+      - name: Merge demo into site
+        run: |
+          mkdir -p website/out/demo
+          cp -r out/. website/out/demo/
+          touch website/out/.nojekyll
+          echo "${SITE_URL#https://}" > website/out/CNAME
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

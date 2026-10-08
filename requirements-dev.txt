@@ -1,0 +1,6 @@
+-r requirements.txt
+ruff==0.14.0
+mypy==1.18.2
+types-requests
+types-PyYAML
+types-psutil

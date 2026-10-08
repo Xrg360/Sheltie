@@ -27,8 +27,8 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
             errors.append(f"{section}.threshold must be numeric")
 
     network = config.get("network", {}) or {}
-    if not network.get("ethernet") and not network.get("wifi"):
-        errors.append("at least one network interface must be configured")
+    if not isinstance(network, dict):
+        errors.append("network must be an object")
 
     auto_heal = config.get("auto_heal", {}) or {}
     if auto_heal:

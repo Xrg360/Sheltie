@@ -1,0 +1,9 @@
+# The maintainer reviews everything that defines Meerkat's design contract.
+/DESIGN.md                    @xrg360
+/AGENTS.md                    @xrg360
+/src/styles/tokens.css        @xrg360
+/src/components/ui/           @xrg360
+/src/components/shell/        @xrg360
+/src/lib/nav.ts               @xrg360
+/src/app/icon.svg             @xrg360
+/.github/                     @xrg360

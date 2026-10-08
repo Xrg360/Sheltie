@@ -1,0 +1,7 @@
+target-version = "py312"
+line-length = 160
+
+[lint]
+select = ["E", "F", "W", "B"]
+# The embedded dashboard HTML in monitors/api.py has very long lines.
+ignore = ["E501"]

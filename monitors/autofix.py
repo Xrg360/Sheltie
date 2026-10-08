@@ -9,6 +9,11 @@ from monitors.alerts import parse_duration
 from monitors.network import get_interface_status
 
 
+# Containers stopped on purpose (docker stop / compose stop) are tracked from
+# Docker events so auto-heal does not fight the operator.
+USER_STOPPED_KEY = "auto_heal.containers.user_stopped"
+
+
 class AutoHealMonitor:
     def __init__(self, config: dict[str, Any], state: Any, alerts: Any, actions: Any) -> None:
         auto_config = config.get("auto_heal", {}) or {}
@@ -59,6 +64,7 @@ class AutoHealMonitor:
 
         active_names = set(self.state.get("auto_heal.containers.active", []))
         blocked = set(getattr(self.actions, "blocked_containers", set()))
+        user_stopped = set(self.state.get(USER_STOPPED_KEY, []))
 
         for container in containers:
             name = container.name
@@ -67,7 +73,7 @@ class AutoHealMonitor:
             if container.status == "running":
                 active_names.add(name)
                 continue
-            if name not in active_names:
+            if name not in active_names or name in user_stopped:
                 continue
             if not self._cooldown_elapsed(f"auto_heal.containers.{name}.last_repair"):
                 continue
@@ -97,6 +103,8 @@ class AutoHealMonitor:
                 continue
             if interface not in active_interfaces:
                 continue
+            if not self._repairable(label, status):
+                continue
             if not self._cooldown_elapsed(f"auto_heal.network.{interface}.last_repair"):
                 continue
 
@@ -116,6 +124,15 @@ class AutoHealMonitor:
 
         self.state.set("auto_heal.network.active", sorted(active_interfaces))
 
+    @staticmethod
+    def _repairable(label: str, status: Any) -> bool:
+        # A missing interface or an unplugged Ethernet cable cannot be fixed by bouncing the link.
+        if status.operstate == "missing":
+            return False
+        if label == "ethernet" and not status.carrier:
+            return False
+        return True
+
     def _cooldown_elapsed(self, key: str) -> bool:
         now = datetime.now(timezone.utc).timestamp()
         last_repair = float(self.state.get(key, 0) or 0)
@@ -131,5 +148,4 @@ class AutoHealMonitor:
             severity="info" if ok else "warning",
             title=title if ok else f"{title} failed",
             body=body,
-            force=True,
         )

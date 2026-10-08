@@ -62,7 +62,7 @@ def main() -> int:
     notifier = TelegramNotifier(config, state)
     alerts = AlertManager(config, state, notifier, history)
     action_service = ActionService(config, state, history)
-    status_service = StatusService(config, state, history)
+    status_service = StatusService(config, state, history, notifier)
     stopped = Event()
 
     auto_heal_monitor = AutoHealMonitor(config, state, alerts, action_service)

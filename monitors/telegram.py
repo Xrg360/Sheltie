@@ -4,6 +4,8 @@ from typing import Any
 
 import requests
 
+from monitors.alerts import silence_active
+
 
 class TelegramNotifier:
     def __init__(self, config: dict[str, Any], state: Any | None = None) -> None:
@@ -38,7 +40,7 @@ class TelegramNotifier:
             logging.info("Telegram disabled, would send: %s", text.replace("\n", " | "))
             return
 
-        if not force and self.state and self.state.get("alerts.silenced", False):
+        if not force and self.state and silence_active(self.state):
             logging.info("Alerts silenced, skipped Telegram message: %s", text.replace("\n", " | "))
             return
 
