@@ -6,13 +6,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { NAV } from "@/lib/nav";
-import { useMeerkat } from "@/lib/store";
+import { useSheltie } from "@/lib/store";
 import { strings } from "@/lib/strings";
 
 type Command = { id: string; group: string; label: string; hint?: string; icon: ReactNode; run: () => void };
 
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, snapshot, act, prefs, setPrefs, refresh, setShortcutsOpen } = useMeerkat();
+  const { paletteOpen, setPaletteOpen, snapshot, act, prefs, setPrefs, refresh, setShortcutsOpen } = useSheltie();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [index, setIndex] = useState(0);

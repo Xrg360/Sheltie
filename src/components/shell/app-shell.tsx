@@ -15,13 +15,13 @@ import { IS_DEMO } from "@/lib/api";
 import { clockTime, secondsAgo } from "@/lib/format";
 import { problems } from "@/lib/insights";
 import { DOCS_URL, NAV, REPO_URL, isActive } from "@/lib/nav";
-import { useMeerkat } from "@/lib/store";
+import { useSheltie } from "@/lib/store";
 import { strings } from "@/lib/strings";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() || "/";
   const router = useRouter();
-  const { snapshot, setPaletteOpen, setShortcutsOpen, paletteOpen } = useMeerkat();
+  const { snapshot, setPaletteOpen, setShortcutsOpen, paletteOpen } = useSheltie();
   const [moreOpen, setMoreOpen] = useState(false);
   const pendingG = useRef<number | null>(null);
 
@@ -177,7 +177,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 function ConnectionIndicator() {
-  const { connection, lastSuccess, now } = useMeerkat();
+  const { connection, lastSuccess, now } = useSheltie();
   const tone = connection === "live" ? "ok" : connection === "offline" ? "bad" : connection === "stale" ? "warn" : "unknown";
   const label = IS_DEMO
     ? strings.connection.demo
@@ -201,7 +201,7 @@ function ConnectionIndicator() {
 }
 
 function ConnectionBanner() {
-  const { connection, lastSuccess, now, refresh } = useMeerkat();
+  const { connection, lastSuccess, now, refresh } = useSheltie();
   if (connection !== "offline" && connection !== "stale") return null;
   const tone = connection === "offline" ? "bad" : "warn";
   const text = lastSuccess ? strings.connection.offlineBanner(secondsAgo(lastSuccess, now)) : strings.connection.neverBanner;
@@ -217,7 +217,7 @@ function ConnectionBanner() {
 }
 
 function SilenceMenu() {
-  const { snapshot, act } = useMeerkat();
+  const { snapshot, act } = useSheltie();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const silenced = Boolean(snapshot?.status?.alerts_silenced);

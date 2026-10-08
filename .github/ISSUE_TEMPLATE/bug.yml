@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in Meerkat is broken or behaves unexpectedly
+description: Something in Sheltie is broken or behaves unexpectedly
 labels: ["bug", "triage"]
 body:
   - type: textarea
@@ -22,8 +22,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: Meerkat version / image tag
-      placeholder: ghcr.io/xrg360/meerkat:0.1.0
+      label: Sheltie version / image tag
+      placeholder: ghcr.io/xrg360/sheltie:0.1.0
     validations:
       required: true
   - type: dropdown
@@ -45,5 +45,5 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: Output of `docker logs meerkat` around the problem (remove tokens).
+      description: Output of `docker logs sheltie` around the problem (remove tokens).
       render: text

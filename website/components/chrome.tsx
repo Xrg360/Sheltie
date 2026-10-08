@@ -2,7 +2,7 @@ import { BookOpen, Star } from "lucide-react";
 import Link from "next/link";
 
 import { Logo } from "./logo";
-import { REPO_URL, VERSION } from "@/lib/site";
+import { REPO_URL, SLOGAN, VERSION } from "@/lib/site";
 
 function GitHubMark({ size = 16 }: { size?: number }) {
   return (
@@ -16,9 +16,9 @@ export function Header() {
   return (
     <header className="site-header">
       <div className="container site-header__inner">
-        <Link href="/" className="brand" aria-label="Meerkat home">
+        <Link href="/" className="brand" aria-label="Sheltie home">
           <Logo size={32} />
-          <span className="brand__name">Meerkat</span>
+          <span className="brand__name">Sheltie</span>
         </Link>
         <nav className="site-nav" aria-label="Main">
           <Link href="/features/">Features</Link>
@@ -42,11 +42,11 @@ export function Footer() {
         <div className="stack stack--sm">
           <span className="brand">
             <Logo size={24} />
-            <span className="brand__name">Meerkat</span>
+            <span className="brand__name">Sheltie</span>
           </span>
-          <p className="muted">Open-source homelab monitoring that tells you what happened while you were offline.</p>
+          <p className="muted">{SLOGAN} Open-source homelab monitoring that tells you what happened while you were offline.</p>
           <p className="subtle">
-            v{VERSION} · Apache-2.0 · No telemetry
+            v{VERSION} · Apache-2.0 · No telemetry · Formerly Meerkat
           </p>
         </div>
         <nav className="footer-links" aria-label="Footer">

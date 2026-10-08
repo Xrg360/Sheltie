@@ -5,7 +5,7 @@ import { DOCS } from "@/lib/docs";
 
 export const metadata: Metadata = {
   title: "Documentation",
-  description: "Install, configure and extend Meerkat: setup guide, architecture, roadmap, design system and contributing guide.",
+  description: "Install, configure and extend Sheltie: setup guide, architecture, roadmap, design system and contributing guide.",
   alternates: { canonical: "/docs/" },
 };
 
@@ -15,7 +15,7 @@ export default function DocsIndex() {
       <div className="container">
         <div className="section__head">
           <span className="eyebrow">Documentation</span>
-          <h1>Meerkat docs</h1>
+          <h1>Sheltie docs</h1>
           <p className="muted">Everything here is generated from the Markdown files in the repository, so it always matches the code.</p>
         </div>
         <div className="grid grid--3">

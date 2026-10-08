@@ -15,7 +15,7 @@ class ActionService:
         self.history = history
         action_config = config.get("actions", {}) or {}
         self.enabled = bool(action_config.get("enabled", True))
-        self.blocked_containers = set(action_config.get("blocked_containers") or ["meerkat"])
+        self.blocked_containers = set(action_config.get("blocked_containers") or ["sheltie", "meerkat"])
 
     def clear_ram_cache(self) -> dict[str, Any]:
         if not self.enabled:

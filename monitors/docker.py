@@ -23,7 +23,7 @@ class DockerEventMonitor:
     def __init__(self, state: Any, notifier: Any, ignored_containers: set[str] | None = None) -> None:
         self.state = state
         self.notifier = notifier
-        self.ignored_containers = ignored_containers or {"meerkat"}
+        self.ignored_containers = ignored_containers or {"sheltie", "meerkat"}
         self.thread: threading.Thread | None = None
         self.stop_event = threading.Event()
 

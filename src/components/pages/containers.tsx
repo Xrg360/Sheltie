@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Card, EmptyState, PageHeader, SearchInput, Segmented, SkeletonRows } from "@/components/ui/layout";
 import { StatusPill } from "@/components/ui/status";
-import { useMeerkat } from "@/lib/store";
+import { useSheltie } from "@/lib/store";
 import { strings } from "@/lib/strings";
 import type { Container, Tone } from "@/lib/types";
 
@@ -25,7 +25,7 @@ function statusLabel(status: string): string {
 }
 
 export function ContainersPage() {
-  const { snapshot, act, confirm } = useMeerkat();
+  const { snapshot, act, confirm } = useSheltie();
   const params = useSearchParams();
   const [query, setQuery] = useState(params.get("q") ?? "");
   const [filter, setFilter] = useState<Filter>("all");

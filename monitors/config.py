@@ -1,6 +1,19 @@
+import os
 from typing import Any
 
 from monitors.alerts import parse_duration
+
+# Sheltie was called Meerkat before 0.3. Old MEERKAT_* variables keep working as a fallback.
+ENV_PREFIXES = ("SHELTIE_", "MEERKAT_")
+
+
+def env(name: str) -> str | None:
+    """Read SHELTIE_<name>, falling back to the legacy MEERKAT_<name>."""
+    for prefix in ENV_PREFIXES:
+        value = os.getenv(prefix + name)
+        if value:
+            return value
+    return None
 
 
 class ConfigError(ValueError):

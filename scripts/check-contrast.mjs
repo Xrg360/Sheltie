@@ -1,4 +1,4 @@
-// Verifies that Savanna token pairs meet WCAG 2.2 AA contrast in both themes.
+// Verifies that Ink & Cream token pairs meet WCAG 2.2 AA contrast in both themes.
 // Usage: node scripts/check-contrast.mjs
 import { readFileSync } from "node:fs";
 
@@ -55,6 +55,12 @@ const pairs = [
   ["ok-text", "surface", 4.5],
   ["warn-text", "surface", 4.5],
   ["bad-text", "surface", 4.5],
+  // Brand cards (website and logo): ink on the light brand colors, cream on ink.
+  ["brand-ink", "brand-pink", 4.5],
+  ["brand-ink", "brand-lavender", 4.5],
+  ["brand-ink", "brand-peach", 4.5],
+  ["brand-ink", "brand-ochre", 4.5],
+  ["brand-ink", "brand-cream", 4.5],
 ];
 
 let failed = 0;

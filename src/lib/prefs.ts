@@ -20,14 +20,17 @@ export const DEFAULT_PREFS: Prefs = {
   token: "",
 };
 
-const PREFS_KEY = "meerkat.prefs";
-const SNAPSHOT_KEY = "meerkat.snapshot";
-const SEEN_KEY = "meerkat.seen";
-const VISIT_KEY = "meerkat.lastVisit";
+const PREFS_KEY = "sheltie.prefs";
+const SNAPSHOT_KEY = "sheltie.snapshot";
+const SEEN_KEY = "sheltie.seen";
+const VISIT_KEY = "sheltie.lastVisit";
+
+// Sheltie was called Meerkat before 0.3; values saved under the old key names are still read.
+const legacyKey = (key: string) => key.replace(/^sheltie\./, "meerkat.");
 
 export function read<T>(key: string, fallback: T): T {
   try {
-    const raw = window.localStorage.getItem(key);
+    const raw = window.localStorage.getItem(key) ?? window.localStorage.getItem(legacyKey(key));
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
@@ -67,4 +70,4 @@ export function applyTheme(theme: ThemePref): void {
 }
 
 /** Runs before first paint (inlined in layout.tsx) so there is no theme flash. */
-export const THEME_BOOTSTRAP = `try{var p=JSON.parse(localStorage.getItem("${PREFS_KEY}")||"{}");if(p.theme==="light"||p.theme==="dark")document.documentElement.setAttribute("data-theme",p.theme)}catch(e){}`;
+export const THEME_BOOTSTRAP = `try{var p=JSON.parse(localStorage.getItem("${PREFS_KEY}")||localStorage.getItem("${legacyKey(PREFS_KEY)}")||"{}");if(p.theme==="light"||p.theme==="dark")document.documentElement.setAttribute("data-theme",p.theme)}catch(e){}`;

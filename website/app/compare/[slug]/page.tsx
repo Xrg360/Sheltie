@@ -18,8 +18,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const comparison = COMPARISONS.find((item) => item.slug === slug);
   if (!comparison) return {};
   return {
-    title: `Meerkat vs ${comparison.name}: a ${comparison.name} alternative for homelabs`,
-    description: `An honest comparison of Meerkat and ${comparison.name}: what each does best, when to choose which, and how to run them together.`,
+    title: `Sheltie vs ${comparison.name}: a ${comparison.name} alternative for homelabs`,
+    description: `An honest comparison of Sheltie and ${comparison.name}: what each does best, when to choose which, and how to run them together.`,
     alternates: { canonical: `/compare/${slug}/` },
   };
 }
@@ -35,15 +35,15 @@ export default async function ComparePage({ params }: { params: Promise<{ slug: 
           "@context": "https://schema.org",
           "@type": "BreadcrumbList",
           itemListElement: [
-            { "@type": "ListItem", position: 1, name: "Meerkat", item: SITE_URL },
-            { "@type": "ListItem", position: 2, name: `Meerkat vs ${comparison.name}`, item: `${SITE_URL}/compare/${slug}/` },
+            { "@type": "ListItem", position: 1, name: "Sheltie", item: SITE_URL },
+            { "@type": "ListItem", position: 2, name: `Sheltie vs ${comparison.name}`, item: `${SITE_URL}/compare/${slug}/` },
           ],
         }}
       />
       <section className="section">
         <div className="container stack">
           <span className="eyebrow">Compare</span>
-          <h1>Meerkat vs {comparison.name}</h1>
+          <h1>Sheltie vs {comparison.name}</h1>
           <p className="hero__lead">{comparison.summary}</p>
           <nav className="hero__actions" aria-label="Other comparisons" style={{ justifyContent: "flex-start" }}>
             {COMPARISONS.filter((item) => item.slug !== slug).map((item) => (
@@ -70,9 +70,9 @@ export default async function ComparePage({ params }: { params: Promise<{ slug: 
             </ul>
           </article>
           <article className="card">
-            <h2>Meerkat adds</h2>
+            <h2>Sheltie adds</h2>
             <ul className="check-list">
-              {comparison.meerkatAdds.map((item) => (
+              {comparison.sheltieAdds.map((item) => (
                 <li key={item}>
                   <CircleCheck size={18} aria-hidden="true" />
                   {item}
@@ -89,8 +89,8 @@ export default async function ComparePage({ params }: { params: Promise<{ slug: 
             <p className="muted">{comparison.chooseThem}</p>
           </article>
           <article className="card">
-            <h3>Choose Meerkat if…</h3>
-            <p className="muted">{comparison.chooseMeerkat}</p>
+            <h3>Choose Sheltie if…</h3>
+            <p className="muted">{comparison.chooseSheltie}</p>
           </article>
           <article className="card">
             <h3>Or run both</h3>
@@ -102,7 +102,7 @@ export default async function ComparePage({ params }: { params: Promise<{ slug: 
         <div className="container">
           <div className="cta">
             <h2>See the difference in 30 seconds.</h2>
-            <p>The live demo runs the real Meerkat dashboard with a simulated homelab: a power cut last night, a healed container and a site that is down right now.</p>
+            <p>The live demo runs the real Sheltie dashboard with a simulated homelab: a power cut last night, a healed container and a site that is down right now.</p>
             <div className="hero__actions">
               <a className="btn btn--primary" href="/demo/">
                 Open the live demo

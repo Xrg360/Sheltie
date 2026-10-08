@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import { Card, EmptyState, PageHeader, SkeletonRows } from "@/components/ui/layout";
 import { StatusPill, toneFromBool, upDownLabel } from "@/components/ui/status";
-import { useMeerkat } from "@/lib/store";
+import { useSheltie } from "@/lib/store";
 import { strings } from "@/lib/strings";
 import type { InterfaceInfo, Tone } from "@/lib/types";
 
@@ -31,7 +31,7 @@ function Link({ tone }: { tone: Tone }) {
 }
 
 export function NetworkPage() {
-  const { snapshot } = useMeerkat();
+  const { snapshot } = useSheltie();
   const network = snapshot?.network ?? null;
   const internet = network?.internet_up ?? snapshot?.status?.internet_up ?? null;
   const interfaces = Object.entries(network?.interfaces ?? {});
