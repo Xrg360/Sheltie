@@ -48,6 +48,20 @@ function rewriteHref(href: string, sourceFile: string): string {
   return `${REPO_URL}/blob/master/${resolved}${hash ? `#${hash}` : ""}`;
 }
 
+/** Repo images: screenshots are copied into the site, everything else is served from GitHub. */
+function rewriteSrc(src: string, sourceFile: string): string {
+  const base = sourceFile.includes("/") ? sourceFile.slice(0, sourceFile.lastIndexOf("/") + 1) : "";
+  const parts: string[] = [];
+  for (const part of (base + src).split("/")) {
+    if (part === "..") parts.pop();
+    else if (part && part !== ".") parts.push(part);
+  }
+  const resolved = parts.join("/");
+  if (resolved.startsWith("docs/assets/screenshots/")) return `/screenshots/${resolved.split("/").pop()}`;
+  if (resolved === "src/app/icon.svg") return "/icon.svg";
+  return `https://raw.githubusercontent.com/xrg360/meerkat/master/${resolved}`;
+}
+
 export function renderDoc(doc: Doc): { html: string; headings: Array<{ id: string; text: string; depth: number }>; hasMermaid: boolean } {
   const source = readFileSync(join(process.cwd(), "content", doc.file), "utf8");
   const headings: Array<{ id: string; text: string; depth: number }> = [];
@@ -81,6 +95,6 @@ export function renderDoc(doc: Doc): { html: string; headings: Array<{ id: strin
       },
     },
   });
-  const html = marked.parse(source, { async: false }) as string;
+  const html = (marked.parse(source, { async: false }) as string).replace(/src="(?!https?:|\/|data:)([^"]+)"/g, (_match, src: string) => `src="${rewriteSrc(src, doc.file)}"`);
   return { html, headings, hasMermaid };
 }

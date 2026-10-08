@@ -12,7 +12,8 @@
     "check:tokens": "node scripts/check-tokens.mjs",
     "check:contrast": "node scripts/check-contrast.mjs",
     "screenshots": "node scripts/screenshots.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "check:bundle": "node scripts/check-bundle.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.544.0",

@@ -59,7 +59,7 @@ Status: ✅ fixed on this branch · 🟡 planned (phase noted)
 | 14 | Checks run sequentially, so slow sites (10s timeout each) delay all other checks. | `app.py`, `monitors/sites.py` | 🟡 Phase 1 (async scheduler) |
 | 15 | Durations use the wall clock, which jumps on boards with no RTC after NTP sync. | `monitors/alerts.py` | 🟡 Phase 1 |
 | 16 | The internet check is ICMP only. It cannot tell gateway, ISP and DNS failures apart. | `monitors/internet.py` | 🟡 Phase 1 (WAN dependency chain) |
-| 17 | `history.db` has no retention, and `/silence` has no expiry. | `monitors/history.py`, `monitors/commands.py` | 🟡 Phase 1 |
+| 17 | `history.db` has no retention, and `/silence` has no expiry. | `monitors/history.py`, `monitors/commands.py` | ✅ Silence can expire (dashboard and API). 🟡 History retention in Phase 1 |
 
 ### P2: quality and developer experience
 
@@ -70,8 +70,8 @@ Status: ✅ fixed on this branch · 🟡 planned (phase noted)
 | `api.port: 8710` in the sample config collided with the web UI. | ✅ Changed to `8711` |
 | `/metrics` and `/api/health` block for 1s on `cpu_percent(interval=1)` and spawn `ip route` on every request. | 🟡 Phase 1 (serve cached readings) |
 | Site checks read the whole response body with no size cap. Disk alert IDs are mangled (`/mnt/x` becomes `rootmntrootx`). | 🟡 good first issue |
-| The Next proxy forwards every request header, including cookies, to the backend. The action token is kept in `localStorage`. | 🟡 Phase 3 |
-| The README is written for one specific server and has no screenshots or demo. | 🟡 Phase 0 follow-up |
+| The Next proxy forwards every request header, including cookies, to the backend. The action token is kept in `localStorage`. | ✅ Proxy forwards only the content type and action token. 🟡 Token storage moves to a session login in Phase 3 |
+| The README is written for one specific server and has no screenshots or demo. | ✅ New README with screenshots, live demo and website |
 
 ---
 
@@ -198,7 +198,7 @@ Each of these is a self-contained plugin of about 50-150 lines plus a test.
 - `/digest`
 
 **Web UI**
-- Incident timeline
+- ✅ Incident timeline
 - Public status page
 - Config editor with schema validation
 - PWA with web push
@@ -230,7 +230,7 @@ gantt
   section Phase 0 - Foundation
   LICENSE, CI, lint, typecheck, GHCR release      :done, p0a, 2026-10-08, 3d
   P0 fixes - auth, auto-heal intent, stale cmds    :done, p0b, 2026-10-08, 3d
-  README rewrite, screenshots, demo mode           :p0c, after p0b, 5d
+  Savanna UI revamp, DESIGN.md, website, demo      :done, p0c, 2026-10-08, 3d
   section Phase 1 - Resilience core
   SQLite store and state.json migration            :p1a, after p0c, 5d
   Outbox, retry and digest                         :p1b, after p1a, 5d
@@ -242,7 +242,7 @@ gantt
   NUT UPS and auto-heal v2                         :p2c, after p2a, 5d
   section Phase 3 - Product
   FastAPI, static UI, auth, SSE, single process    :p3a, after p2a, 10d
-  Incident timeline, status page, PWA push         :p3b, after p3a, 10d
+  Status page, PWA push, session login             :p3b, after p3a, 10d
   section Phase 4 - Multi-host
   Hub mode - agents dial out over WebSocket        :p4a, after p3b, 15d
 ```
@@ -285,7 +285,7 @@ Agents never need inbound ports. Each one keeps alerting through its own outbox 
 1. **Remove the blockers.**
    - ✅ LICENSE, CONTRIBUTING, Code of Conduct, SECURITY policy, issue and PR templates, CI and Dependabot.
    - Next: create the labels (`good first issue`, `help wanted`, `plugin`), enable GitHub Discussions, and publish a GitHub Project board for this roadmap.
-2. **Make the README sell in 10 seconds.**
+2. ✅ **Make the README sell in 10 seconds.** Done: new README, live demo and SEO website. Owner steps are in [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md).
    - Hero line: "Know what happened while you were offline."
    - A 15-second GIF of the outage digest on a phone.
    - The comparison table, a one-command install, and `MEERKAT_DEMO=1` simulated outages so people can try it safely.

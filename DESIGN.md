@@ -167,7 +167,7 @@ Motion explains change; it never decorates. Durations `--dur-fast` (120ms) and `
 
 ## 11. Performance and privacy budget
 
-- First-load JavaScript per route ≤ 150 KB gzipped. The only runtime dependencies are React, Next.js and `lucide-react`.
+- First-load JavaScript per route ≤ 250 KB gzipped, of which the React/Next.js framework is about 150 KB. Enforced by `npm run check:bundle` in CI. The only runtime dependencies are React, Next.js and `lucide-react`.
 - The dashboard makes requests only to its own `/api/meerkat/*` proxy. No third-party requests, fonts or telemetry.
 - Polling pauses while the tab is hidden and backs off exponentially while the API is unreachable.
 - Preferences live in `localStorage` and every access is wrapped in try/catch.

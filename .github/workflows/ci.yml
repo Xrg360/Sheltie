@@ -45,6 +45,8 @@ jobs:
         run: npm run build
       - name: Build (static demo)
         run: npm run build:demo
+      - name: Bundle budget
+        run: npm run check:bundle
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: End-to-end and accessibility tests

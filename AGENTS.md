@@ -25,7 +25,7 @@ These rules apply to any automated agent (coding assistants, bots, autonomous PR
 ruff check . && mypy --ignore-missing-imports app.py monitors && python -m unittest discover tests
 # Dashboard
 npm run typecheck && npm run check:tokens && npm run check:contrast
-npm run build && npm run build:demo && npx playwright test
+npm run build && npm run build:demo && npm run check:bundle && npx playwright test
 ```
 
 ## What to include in your PR
