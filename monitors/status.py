@@ -1,22 +1,32 @@
+from datetime import datetime, timezone
 from typing import Any
 
 import docker
 import psutil
 
+from monitors import __version__
+from monitors.alerts import SILENCED_UNTIL_KEY, silence_active
+from monitors.autofix import USER_STOPPED_KEY
 from monitors.network import get_default_route, get_interface_status
 from monitors.temp import read_cpu_temperature
 
 
 class StatusService:
-    def __init__(self, config: dict[str, Any], state: Any, history: Any) -> None:
+    def __init__(self, config: dict[str, Any], state: Any, history: Any, notifier: Any = None) -> None:
         self.config = config
         self.state = state
         self.history = history
+        self.notifier = notifier
+        self.started_at = datetime.now(timezone.utc).isoformat()
 
     def status(self) -> dict[str, Any]:
         route = self.state.get("changes.network.route.value")
         return {
-            "alerts_silenced": self.state.get("alerts.silenced", False),
+            "version": __version__,
+            "started_at": self.started_at,
+            "telegram_enabled": bool(getattr(self.notifier, "enabled", False)),
+            "alerts_silenced": silence_active(self.state),
+            "alerts_silenced_until": self.state.get(SILENCED_UNTIL_KEY),
             "internet_up": self.state.get("internet.up"),
             "ethernet_up": self.state.get("changes.network.ethernet.value"),
             "wifi_up": self.state.get("changes.network.wifi.value"),
@@ -67,10 +77,21 @@ class StatusService:
         }
 
     def docker(self) -> dict[str, Any]:
+        action_config = self.config.get("actions", {}) or {}
+        blocked = set(action_config.get("blocked_containers") or ["meerkat"])
+        user_stopped = set(self.state.get(USER_STOPPED_KEY, []))
+        tracked = set(self.state.get("auto_heal.containers.active", []))
         try:
             client = docker.from_env()
             containers = [
-                {"name": container.name, "status": container.status, "image": ",".join(container.image.tags)}
+                {
+                    "name": container.name,
+                    "status": container.status,
+                    "image": ",".join(container.image.tags),
+                    "blocked": container.name in blocked,
+                    "user_stopped": container.name in user_stopped,
+                    "auto_heal_tracked": container.name in tracked,
+                }
                 for container in client.containers.list(all=True)
             ]
         except Exception as exc:

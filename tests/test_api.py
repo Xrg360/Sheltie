@@ -5,7 +5,13 @@ import urllib.error
 import urllib.request
 from unittest.mock import patch
 
+from monitors import __version__
+from monitors.actions import ActionService
+from monitors.alerts import clear_silence, set_silence, silence_active
 from monitors.api import GENERATED_TOKEN_KEY, ApiServer, resolve_action_token
+from monitors.autofix import USER_STOPPED_KEY
+from monitors.status import StatusService
+from monitors.telegram import TelegramNotifier
 from monitors.config import ConfigError, validate_config
 
 
@@ -19,6 +25,9 @@ class FakeState:
     def set(self, key, value):
         self.data[key] = value
         return True
+
+    def snapshot(self):
+        return dict(self.data)
 
 
 class FakeStatusService:
@@ -98,6 +107,81 @@ class ApiServerTests(unittest.TestCase):
 
         self.assertEqual(status, 200)
         self.assertEqual(self.actions.cleared, 1)
+
+
+class SilenceTests(unittest.TestCase):
+    def test_timed_silence_expires(self):
+        state = FakeState()
+        with patch("monitors.alerts.time.time", return_value=1000.0):
+            until = set_silence(state, 30)
+            self.assertEqual(until, 1000.0 + 30 * 60)
+            self.assertTrue(silence_active(state))
+        with patch("monitors.alerts.time.time", return_value=1000.0 + 31 * 60):
+            self.assertFalse(silence_active(state))
+        self.assertFalse(state.get("alerts.silenced"))
+        self.assertIsNone(state.get("alerts.silenced_until"))
+
+    def test_silence_until_resumed(self):
+        state = FakeState()
+        set_silence(state, None)
+        self.assertTrue(silence_active(state))
+        clear_silence(state)
+        self.assertFalse(silence_active(state))
+
+    def test_action_service_validates_minutes(self):
+        service = ActionService({"actions": {"enabled": True}}, FakeState(), None)
+
+        self.assertFalse(service.silence_alerts("soon")["ok"])
+        self.assertFalse(service.silence_alerts(-5)["ok"])
+        result = service.silence_alerts(60)
+        self.assertTrue(result["ok"])
+        self.assertIsNotNone(result["silenced_until"])
+        self.assertTrue(service.resume_alerts()["ok"])
+
+    def test_notifier_skips_messages_while_silenced(self):
+        state = FakeState()
+        set_silence(state, 10)
+        with patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "1"}, clear=True):
+            notifier = TelegramNotifier({}, state)
+        with patch("monitors.telegram.requests.post") as post:
+            notifier.send("hello")
+            notifier.send("forced", force=True)
+        self.assertEqual(post.call_count, 1)
+
+
+class StatusPayloadTests(unittest.TestCase):
+    def test_status_includes_product_fields(self):
+        state = FakeState()
+        history = type("History", (), {"recent": lambda self, limit: []})()
+        notifier = type("Notifier", (), {"enabled": True})()
+        service = StatusService({}, state, history, notifier)
+        set_silence(state, 5)
+
+        status = service.status()
+
+        self.assertEqual(status["version"], __version__)
+        self.assertTrue(status["telegram_enabled"])
+        self.assertTrue(status["alerts_silenced"])
+        self.assertIsNotNone(status["alerts_silenced_until"])
+        self.assertIn("started_at", status)
+
+    def test_docker_flags_blocked_stopped_and_tracked(self):
+        state = FakeState()
+        state.set(USER_STOPPED_KEY, ["db"])
+        state.set("auto_heal.containers.active", ["web"])
+        service = StatusService({"actions": {"blocked_containers": ["meerkat"]}}, state, None)
+        containers = [
+            type("C", (), {"name": name, "status": "running", "image": type("I", (), {"tags": ["x:1"]})()})()
+            for name in ("meerkat", "db", "web")
+        ]
+        with patch("monitors.status.docker.from_env") as from_env:
+            from_env.return_value.containers.list.return_value = containers
+            payload = service.docker()
+
+        flags = {c["name"]: (c["blocked"], c["user_stopped"], c["auto_heal_tracked"]) for c in payload["containers"]}
+        self.assertEqual(flags["meerkat"], (True, False, False))
+        self.assertEqual(flags["db"], (False, True, False))
+        self.assertEqual(flags["web"], (False, False, True))
 
 
 class ConfigValidationTests(unittest.TestCase):

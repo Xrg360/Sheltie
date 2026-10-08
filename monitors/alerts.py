@@ -1,3 +1,4 @@
+import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -54,6 +55,35 @@ def parse_duration(value: Any, default: int = 0) -> int:
             return int(float(number) * multiplier)
 
     return int(float(text))
+
+
+SILENCED_KEY = "alerts.silenced"
+SILENCED_UNTIL_KEY = "alerts.silenced_until"
+
+
+def silence_active(state: Any) -> bool:
+    """True while alerts are silenced. A timed silence ends by itself."""
+    if not state.get(SILENCED_KEY, False):
+        return False
+    until = state.get(SILENCED_UNTIL_KEY)
+    if until and time.time() >= float(until):
+        state.set(SILENCED_KEY, False)
+        state.set(SILENCED_UNTIL_KEY, None)
+        return False
+    return True
+
+
+def set_silence(state: Any, minutes: float | None) -> float | None:
+    """Silence alerts for `minutes`, or until resumed when `minutes` is None. Returns the end time."""
+    until = time.time() + minutes * 60 if minutes else None
+    state.set(SILENCED_UNTIL_KEY, until)
+    state.set(SILENCED_KEY, True)
+    return until
+
+
+def clear_silence(state: Any) -> None:
+    state.set(SILENCED_KEY, False)
+    state.set(SILENCED_UNTIL_KEY, None)
 
 
 class AlertManager:

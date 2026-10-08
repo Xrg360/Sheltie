@@ -8,7 +8,7 @@ from typing import Any
 
 import requests
 
-from monitors.alerts import parse_duration
+from monitors.alerts import clear_silence, parse_duration, set_silence
 
 
 HELP_TEXT = """Meerkat commands:
@@ -324,11 +324,11 @@ class TelegramCommandMonitor:
         return f"⚠️ Docker restart failed\n\n{result['error']}"
 
     def _silence(self) -> str:
-        self.state.set("alerts.silenced", True)
+        set_silence(self.state, None)
         return "🔕 Alerts silenced. Use /resume to enable alerts again."
 
     def _resume(self) -> str:
-        self.state.set("alerts.silenced", False)
+        clear_silence(self.state)
         return "🔔 Alerts resumed."
 
     @staticmethod

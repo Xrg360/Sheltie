@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const API_BASE = process.env.MEERKAT_API_BASE || "http://127.0.0.1:8711";
+const FORWARDED_HEADERS = ["content-type", "x-meerkat-action-token"];
 
 function backendPath(parts: string[] = []) {
   if (parts[0] === "actions") {
@@ -14,8 +15,13 @@ function backendPath(parts: string[] = []) {
 
 async function proxy(request: NextRequest, parts: string[] = []) {
   const url = new URL(backendPath(parts), API_BASE);
-  const headers = new Headers(request.headers);
-  headers.delete("host");
+  url.search = request.nextUrl.search;
+  // Forward only what the Python API needs; never cookies or auth headers from the browser.
+  const headers = new Headers();
+  for (const name of FORWARDED_HEADERS) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
 
   let response: Response;
   try {

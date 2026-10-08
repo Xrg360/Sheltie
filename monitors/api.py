@@ -77,6 +77,12 @@ class ApiServer:
                     body = self._read_json()
                     self._json(action_service.remove_site(str(body.get("name", ""))))
                     return
+                if path == "/api/actions/alerts/silence":
+                    self._json(action_service.silence_alerts(self._read_json().get("minutes")))
+                    return
+                if path == "/api/actions/alerts/resume":
+                    self._json(action_service.resume_alerts())
+                    return
                 if path == "/api/actions/events/clear":
                     self._json(action_service.clear_events())
                     return
