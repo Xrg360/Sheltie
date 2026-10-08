@@ -1,10 +1,10 @@
 # Security policy
 
-Meerkat runs with access to the Docker socket and, in the default Compose file, with `privileged: true` and host networking. A vulnerability in Meerkat can therefore mean root on the host, so please report problems privately.
+Labwarden runs with access to the Docker socket and, in the default Compose file, with `privileged: true` and host networking. A vulnerability in Labwarden can therefore mean root on the host, so please report problems privately.
 
 ## Reporting a vulnerability
 
-Use [GitHub private vulnerability reporting](https://github.com/xrg360/meerkat/security/advisories/new). Please do not open a public issue for security problems.
+Use [GitHub private vulnerability reporting](https://github.com/xrg360/labwarden/security/advisories/new). Please do not open a public issue for security problems.
 
 Include the affected version or image tag, how to reproduce the problem, and the impact you expect. You should get an acknowledgement within 7 days.
 
@@ -14,8 +14,8 @@ Only the latest release receives security fixes while the project is pre-1.0.
 
 ## Hardening recommendations
 
-- Set `MEERKAT_ACTION_TOKEN` to a long random value. If you do not set one, Meerkat generates one on first start, logs it once, and stores it in `state/state.json`. Action endpoints always require a token.
+- Set `LABWARDEN_ACTION_TOKEN` to a long random value. If you do not set one, Labwarden generates one on first start, logs it once, and stores it in `state/state.json`. Action endpoints always require a token.
 - Do not expose ports `8710` or `8711` to the internet. Put them behind a reverse proxy with authentication or a VPN.
 - Read-only endpoints (`/api/status`, `/metrics`, ...) are currently unauthenticated and reveal container names and network details.
 - Set `actions.enabled: false` if you only want monitoring and no remote repairs.
-- Keep `meerkat` in `actions.blocked_containers`.
+- Keep `labwarden` in `actions.blocked_containers`.
