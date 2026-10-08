@@ -16,3 +16,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Odd-numbered Node.js majors are short-lived and never become LTS. Stay on LTS lines.
+      - dependency-name: node
+        versions: ["25.x", "27.x", "29.x"]
