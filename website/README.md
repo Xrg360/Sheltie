@@ -22,7 +22,7 @@ mkdir -p out/demo && cp -r ../out/. out/demo/
 
 ## Deploy (GitHub Pages)
 
-`.github/workflows/pages.yml` builds and deploys on every push to `master` that touches the site, the dashboard or the docs.
+`.github/workflows/pages.yml` builds and deploys on every push to `master` that touches the site, the dashboard or the docs. Until GitHub Pages is enabled for the repository, the workflow still builds the site but skips deployment and shows a warning explaining what to switch on.
 
 One-time setup by the repository owner:
 

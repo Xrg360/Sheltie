@@ -27,9 +27,30 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      pages_enabled: ${{ steps.pages.outputs.enabled }}
     env:
       SITE_URL: ${{ vars.SITE_URL || 'https://meerkat.simplewebsite.in' }}
     steps:
+      # GITHUB_TOKEN cannot turn Pages on, so until the owner does, build the site
+      # (to catch regressions) but skip deployment with a clear warning instead of failing.
+      - name: Check GitHub Pages is enabled
+        id: pages
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.repos.getPages({ owner: context.repo.owner, repo: context.repo.repo });
+              core.setOutput("enabled", "true");
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              core.setOutput("enabled", "false");
+              const help = "GitHub Pages is not enabled, so the site was built but not deployed. " +
+                "Enable it in Settings → Pages → Source: GitHub Actions, set the custom domain to meerkat.simplewebsite.in, " +
+                "add the DNS record CNAME meerkat → xrg360.github.io, then re-run this workflow.";
+              core.warning(help);
+              await core.summary.addHeading("Website built, deployment skipped").addRaw(help).write();
+            }
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -54,12 +75,15 @@ jobs:
           touch website/out/.nojekyll
           echo "${SITE_URL#https://}" > website/out/CNAME
       - uses: actions/configure-pages@v5
+        if: steps.pages.outputs.enabled == 'true'
       - uses: actions/upload-pages-artifact@v3
+        if: steps.pages.outputs.enabled == 'true'
         with:
           path: website/out
 
   deploy:
     needs: build
+    if: needs.build.outputs.pages_enabled == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
