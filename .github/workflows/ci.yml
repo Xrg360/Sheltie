@@ -51,7 +51,7 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: End-to-end and accessibility tests
         run: npx playwright test
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: playwright-results
