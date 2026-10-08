@@ -1,0 +1,162 @@
+/*
+ * Savanna design tokens - the ONLY place colors are defined.
+ * Changing anything here changes Meerkat's identity: see DESIGN.md ("Tokens") and get a design review.
+ * Theme selection: <html data-theme="light|dark">, otherwise follows the OS setting.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Neutrals - warm sand */
+  --bg: #f6f1e9;
+  --surface: #fffdf9;
+  --surface-2: #f4eee4;
+  --surface-3: #ece4d6;
+  --border: #e7ddcc;
+  --border-strong: #d3c4ab;
+  --text: #211b14;
+  --text-2: #5f5242;
+  --text-3: #7a6a55;
+
+  /* Accent - dusk indigo. Interactive and focus only, never status. */
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-soft: #eef0ff;
+  --accent-text: #3730a3;
+  --on-accent: #ffffff;
+  --focus: #4f46e5;
+
+  /* Status - the only colors that mean something */
+  --ok: #15803d;
+  --ok-soft: #e7f6ec;
+  --ok-text: #166534;
+  --warn: #b45309;
+  --warn-soft: #fdf3e1;
+  --warn-text: #92400e;
+  --bad: #b91c1c;
+  --bad-soft: #fdecec;
+  --bad-text: #991b1b;
+  --unknown: #7a6a55;
+  --unknown-soft: #f1ebe1;
+  --unknown-text: #5f5242;
+
+  /* Brand illustration (logo only) */
+  --brand-fur: #c99a5b;
+  --brand-fur-dark: #8a6236;
+  --brand-sky: #211b14;
+  --brand-ink: #211b14;
+
+  /* Effects */
+  --shadow-1: 0 1px 2px rgb(33 27 20 / 0.06), 0 1px 1px rgb(33 27 20 / 0.04);
+  --shadow-2: 0 12px 32px rgb(33 27 20 / 0.14), 0 2px 6px rgb(33 27 20 / 0.08);
+  --scrim: rgb(33 27 20 / 0.42);
+
+  /* Typography */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+
+  /* Space (4px grid) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Shape */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+
+  /* Layout */
+  --sidebar-width: 248px;
+  --content-max: 1200px;
+  --tap: 44px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #12100d;
+    --surface: #1a1712;
+    --surface-2: #24201a;
+    --surface-3: #2c271f;
+    --border: #322c24;
+    --border-strong: #4a3f31;
+    --text: #f4eee4;
+    --text-2: #c9bba4;
+    --text-3: #a89880;
+    --accent: #818cf8;
+    --accent-hover: #a5b4fc;
+    --accent-soft: #23223f;
+    --accent-text: #c7d2fe;
+    --on-accent: #12100d;
+    --focus: #a5b4fc;
+    --ok: #4ade80;
+    --ok-soft: #13291b;
+    --ok-text: #86efac;
+    --warn: #fbbf24;
+    --warn-soft: #2e2410;
+    --warn-text: #fcd34d;
+    --bad: #f87171;
+    --bad-soft: #351717;
+    --bad-text: #fca5a5;
+    --unknown: #a89880;
+    --unknown-soft: #2a251e;
+    --unknown-text: #c9bba4;
+    --brand-sky: #f4eee4;
+    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-2: 0 16px 40px rgb(0 0 0 / 0.55);
+    --scrim: rgb(0 0 0 / 0.6);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #12100d;
+  --surface: #1a1712;
+  --surface-2: #24201a;
+  --surface-3: #2c271f;
+  --border: #322c24;
+  --border-strong: #4a3f31;
+  --text: #f4eee4;
+  --text-2: #c9bba4;
+  --text-3: #a89880;
+  --accent: #818cf8;
+  --accent-hover: #a5b4fc;
+  --accent-soft: #23223f;
+  --accent-text: #c7d2fe;
+  --on-accent: #12100d;
+  --focus: #a5b4fc;
+  --ok: #4ade80;
+  --ok-soft: #13291b;
+  --ok-text: #86efac;
+  --warn: #fbbf24;
+  --warn-soft: #2e2410;
+  --warn-text: #fcd34d;
+  --bad: #f87171;
+  --bad-soft: #351717;
+  --bad-text: #fca5a5;
+  --unknown: #a89880;
+  --unknown-soft: #2a251e;
+  --unknown-text: #c9bba4;
+  --brand-sky: #f4eee4;
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-2: 0 16px 40px rgb(0 0 0 / 0.55);
+  --scrim: rgb(0 0 0 / 0.6);
+}

@@ -1,19 +1,26 @@
 {
   "name": "meerkat-monitor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 8710",
+    "dev:demo": "NEXT_PUBLIC_MEERKAT_DEMO=1 next dev -p 8710",
     "build": "next build",
+    "build:demo": "MEERKAT_STATIC_EXPORT=1 MEERKAT_BASE_PATH=${MEERKAT_BASE_PATH-/demo} next build",
     "start": "next start -p 8710",
-    "lint": "next lint"
+    "typecheck": "tsc --noEmit",
+    "check:tokens": "node scripts/check-tokens.mjs",
+    "check:contrast": "node scripts/check-contrast.mjs"
   },
   "dependencies": {
+    "lucide-react": "^0.544.0",
     "next": "^16.1.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.56.1",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
