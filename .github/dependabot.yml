@@ -1,21 +1,71 @@
+# Dependabot: one grouped pull request per ecosystem per week, instead of one per dependency.
+# Every group collects all update types (patch, minor and major), so review the PR body for
+# major bumps before merging. Groups refresh in place as new versions appear during the week.
 version: 2
+
 updates:
+  # Dashboard (/) and website (/website) share one weekly npm PR.
+  - package-ecosystem: npm
+    directories:
+      - /
+      - /website
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Kolkata
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      npm:
+        patterns: ["*"]
+
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
-  - package-ecosystem: npm
-    directory: /
-    schedule:
-      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Kolkata
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      python:
+        patterns: ["*"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Kolkata
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      github-actions:
+        patterns: ["*"]
+
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Asia/Kolkata
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      docker-images:
+        patterns: ["*"]
     ignore:
       # Odd-numbered Node.js majors are short-lived and never become LTS. Stay on LTS lines.
       - dependency-name: node
