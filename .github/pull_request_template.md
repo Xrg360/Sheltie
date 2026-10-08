@@ -9,6 +9,12 @@
 - [ ] `npm run build` (if the web UI changed)
 - [ ] Tried it on a real host (describe below)
 
+## UI changes (skip if none)
+
+- [ ] Followed [DESIGN.md](../DESIGN.md); no core UX invariant changed (or linked design RFC: #)
+- [ ] `npm run check:tokens`, `npm run check:contrast` and `npx playwright test` pass
+- [ ] Screenshots attached: light, dark, mobile (390px)
+
 ## Checklist
 
 - [ ] New behaviour has a unit test

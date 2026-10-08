@@ -17,7 +17,9 @@ Thanks for helping Meerkat keep watch. Contributions of every size are welcome, 
 | `monitors/<check>.py` | One file per periodic check (`cpu`, `disk`, `sites`, `network`, ...) |
 | `monitors/docker.py`, `autofix.py`, `commands.py` | Background threads: Docker events, auto-heal, Telegram commands |
 | `monitors/api.py` | Python REST API, Prometheus `/metrics`, fallback dashboard |
-| `src/` | Next.js web app (proxies to the Python API) |
+| `src/` | Next.js dashboard: `components/ui` primitives, `components/shell` app frame, `components/pages` screens, `lib` data and copy |
+| `website/` | Public website, docs and live demo (deployed to GitHub Pages) |
+| `e2e/` | Playwright end-to-end and accessibility tests |
 | `tests/` | `unittest` suite with in-memory fakes for state, history and notifiers |
 | `docs/` | Architecture, roadmap and competitive analysis |
 
@@ -60,6 +62,19 @@ A check is a function with the signature `check_<name>(config, state, alerts) ->
 5. Add tests using the `FakeState` / `FakeHistory` / `FakeNotifier` pattern in `tests/test_alerts.py`.
 
 A formal plugin API (entry points with config schemas) is planned. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#plugin-interface-planned).
+
+## UI work
+
+The dashboard has a written design contract: **read [DESIGN.md](DESIGN.md) first**. It explains who Meerkat is for, the principles, the invariants that must not change, the Savanna tokens and the components to reuse.
+
+```bash
+npm run dev:demo         # dashboard with simulated data, no backend needed
+npm run check:tokens     # no color literals outside src/styles/tokens.css
+npm run check:contrast   # every token pair meets WCAG AA
+npm run build:demo && npx playwright test   # e2e + axe accessibility on desktop and mobile
+```
+
+Attach light, dark and mobile screenshots to UI pull requests. Changes to the design contract itself go through a `design-rfc` issue.
 
 ## Style
 
