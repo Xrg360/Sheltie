@@ -1,6 +1,12 @@
 # Meerkat
 
-A lightweight infrastructure monitoring and alerting agent for Docker homelabs.
+[![CI](https://github.com/xrg360/meerkat/actions/workflows/ci.yml/badge.svg)](https://github.com/xrg360/meerkat/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+**Know what happened while you were offline.** A lightweight infrastructure monitoring, alerting and self-healing agent for Docker homelabs.
+
+> Roadmap, architecture and how Meerkat compares to Uptime Kuma, Beszel, Gatus and Netdata: [docs/ROADMAP.md](docs/ROADMAP.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/COMPETITIVE_ANALYSIS.md](docs/COMPETITIVE_ANALYSIS.md)
 
 Meerkat watches network state, internet reachability, Docker container events, and basic system health. It sends Telegram alerts only when something changes state, so restarts and steady-state checks do not produce repeated noise.
 
@@ -27,13 +33,13 @@ Meerkats are natural lookouts: one watches the horizon, warns the group early, a
 - In-app alert popups and optional browser desktop notifications
 - Browser-local settings for theme, refresh interval, action token, and pinned Home monitors
 
-## Server Defaults
+## Defaults to change
 
-The default config is already set for your server:
+The sample config and Compose file use example values. Change them to match your host:
 
-- Ethernet: `enp2s0`
-- Wi-Fi: `wlp1s0`
-- Timezone: `Asia/Kolkata`
+- Ethernet: `enp2s0` (find yours with `ip -br link`)
+- Wi-Fi: `wlp1s0` (remove the `network` entries you do not have; both are optional)
+- Timezone: `Asia/Kolkata` (`TZ` in `compose.yml`)
 
 ## Docker Compose
 
@@ -195,6 +201,8 @@ resume - Resume monitor alerts
 help - Show available commands
 ```
 
+Commands that change something (`/restart`, `/clearcache`, `/addsite`, `/removesite`, `/silence`, `/resume`) are ignored if they are older than `telegram.command_max_age` (5 minutes by default). This stops a command sent during an outage from running hours later. Meerkat replies to say the command was ignored.
+
 In BotFather:
 
 ```text
@@ -241,6 +249,7 @@ If you see `Telegram is disabled`, the container did not receive the token/chat 
 telegram:
   bot_token:
   chat_id:
+  command_max_age: 5m  # destructive commands older than this are ignored
 
 network:
   ethernet: enp2s0
@@ -274,7 +283,7 @@ alerting:
 api:
   enabled: true
   host: 0.0.0.0
-  port: 8710
+  port: 8711
 
 actions:
   enabled: true
@@ -389,7 +398,7 @@ POST /api/meerkat/actions/clear-ram-cache
 
 `/metrics` is Prometheus-compatible.
 
-Action endpoints require `X-Meerkat-Action-Token`. Set it with `MEERKAT_ACTION_TOKEN` or `actions.token`.
+Action endpoints always require `X-Meerkat-Action-Token`. Set it with `MEERKAT_ACTION_TOKEN` or `actions.token`. If neither is set, Meerkat generates a random token on first start, prints it once in `docker logs meerkat`, and stores it in `state/state.json` under `api.action_token`.
 
 `POST /api/actions/docker/restart` expects JSON:
 
@@ -414,9 +423,9 @@ For security, action endpoints are intended for trusted LAN deployments or rever
 
 Meerkat runs an internal cron-style auto-heal loop every 5 minutes by default:
 
-- Docker containers that were previously observed as `running` are started again if they are later found stopped, exited, or dead.
-- Configured Ethernet and Wi-Fi interfaces that were previously observed as up are bounced with `ip link set dev <interface> down/up` if they later drop.
-- Repairs are recorded in event history and sent through Telegram.
+- Docker containers that were previously observed as `running` are started again if they are later found stopped, exited, or dead. Containers you stop on purpose (`docker stop`, `docker compose stop`) are left alone until they are started again.
+- Configured Ethernet and Wi-Fi interfaces that were previously observed as up are bounced with `ip link set dev <interface> down/up` if they later drop. An Ethernet port with no carrier (unplugged cable) or an interface that no longer exists is not bounced.
+- Repairs are recorded in event history and sent through Telegram. `/silence` mutes these messages too.
 - `actions.blocked_containers` is respected, so Meerkat does not restart itself by default.
 
 The Docker container must run with host networking and enough privileges to repair interfaces. The provided Compose file already uses `privileged: true` and `network_mode: host`.
@@ -433,3 +442,11 @@ On first run Meerkat records current monitor state without sending fake recovery
 - Docker lifecycle event
 
 The state file lives at `state/state.json`.
+
+## Contributing
+
+Contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), and look for issues labelled `good first issue` or `plugin`. New monitors, notifiers and repair actions are the easiest way in. Please report security problems privately as described in [SECURITY.md](SECURITY.md).
+
+## License
+
+Meerkat is licensed under the [Apache License 2.0](LICENSE).

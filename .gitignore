@@ -11,3 +11,4 @@ state/*.tmp
 server.*.log
 node_modules/
 .next/
+*.tsbuildinfo

@@ -1,0 +1,49 @@
+name: Bug report
+description: Something in Meerkat is broken or behaves unexpectedly
+labels: ["bug", "triage"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Configure ...
+        2. Unplug ...
+        3. See ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Meerkat version / image tag
+      placeholder: ghcr.io/xrg360/meerkat:0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Host platform
+      options:
+        - Linux x86_64
+        - Linux arm64 (Raspberry Pi, etc.)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant config.yml (remove secrets)
+      render: yaml
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Output of `docker logs meerkat` around the problem (remove tokens).
+      render: text

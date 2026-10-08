@@ -1,0 +1,39 @@
+name: New monitor / notifier / action
+description: Propose a new check, notification channel, or repair action
+labels: ["plugin", "good first issue", "triage"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - Monitor (something to check)
+        - Notifier (somewhere to send alerts)
+        - Action (something Meerkat can do to repair)
+    validations:
+      required: true
+  - type: input
+    id: name
+    attributes:
+      label: Name
+      placeholder: e.g. TLS certificate expiry, ntfy, Wake-on-LAN
+    validations:
+      required: true
+  - type: textarea
+    id: behaviour
+    attributes:
+      label: Behaviour
+      description: What does it check or do? When should it alert, and when does it recover?
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Example configuration
+      render: yaml
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to implement this

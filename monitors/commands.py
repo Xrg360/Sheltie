@@ -2,9 +2,13 @@ import logging
 import hashlib
 import json
 import threading
+import time
+from datetime import datetime
 from typing import Any
 
 import requests
+
+from monitors.alerts import parse_duration
 
 
 HELP_TEXT = """Meerkat commands:
@@ -21,6 +25,11 @@ HELP_TEXT = """Meerkat commands:
 /silence - Pause monitor alerts
 /resume - Resume monitor alerts
 /help - Show this help"""
+
+
+# Commands that change something. If they were queued while Meerkat was offline,
+# running them late could restart a container hours after it was wanted.
+DESTRUCTIVE_COMMANDS = {"/restart", "/clearcache", "/addsite", "/removesite", "/silence", "/resume"}
 
 
 def usage_bar(value: float, width: int = 10) -> str:
@@ -65,6 +74,8 @@ class TelegramCommandMonitor:
         self.notifier = notifier
         self.status_service = status_service
         self.action_service = action_service
+        telegram_config = config.get("telegram", {}) or {}
+        self.command_max_age = parse_duration(telegram_config.get("command_max_age"), 300)
         self.thread: threading.Thread | None = None
         self.stop_event = threading.Event()
 
@@ -162,6 +173,19 @@ class TelegramCommandMonitor:
 
         parts = text.split()
         command = parts[0].split("@")[0].lower()
+        sent_at = float(message.get("date") or time.time())
+        age = time.time() - sent_at
+        if age > self.command_max_age:
+            logging.info("Ignoring stale Telegram command %s sent %.0fs ago", command, age)
+            if command in DESTRUCTIVE_COMMANDS:
+                sent_label = datetime.fromtimestamp(sent_at).strftime("%Y-%m-%d %H:%M")
+                self.notifier.send(
+                    f"⏳ Ignored {command} sent at {sent_label} ({age / 60:.0f} min ago) while Meerkat was offline. "
+                    "Send it again if it is still needed.",
+                    force=True,
+                )
+            return
+
         logging.info("Handling Telegram command %s from chat %s", command, chat_id)
         handlers = {
             "/start": self._help,

@@ -1,10 +1,13 @@
+import time
 import unittest
 from dataclasses import dataclass
 from unittest.mock import patch
 
 from monitors.actions import ActionService
 from monitors.alerts import AlertManager
-from monitors.autofix import AutoHealMonitor
+from monitors.autofix import USER_STOPPED_KEY, AutoHealMonitor
+from monitors.commands import TelegramCommandMonitor
+from monitors.docker import DockerEventMonitor
 from monitors.network import InterfaceStatus
 
 
@@ -157,7 +160,7 @@ class AutoHealMonitorTests(unittest.TestCase):
             interface_status.side_effect = [
                 InterfaceStatus("eth0", "up", True, True, True),
                 InterfaceStatus("wlan0", "missing", False, False, False),
-                InterfaceStatus("eth0", "down", False, False, False),
+                InterfaceStatus("eth0", "up", True, False, False),
                 InterfaceStatus("wlan0", "missing", False, False, False),
             ]
             monitor._heal_network()
@@ -165,6 +168,122 @@ class AutoHealMonitorTests(unittest.TestCase):
 
         self.assertEqual(actions.restarted_interfaces, ["eth0"])
         self.assertEqual(state.get("auto_heal.network.active"), ["eth0"])
+
+    def test_does_not_bounce_unplugged_ethernet(self):
+        monitor, state, alerts, actions = self.make_monitor()
+        state.set("auto_heal.network.active", ["eth0"])
+
+        with patch("monitors.autofix.get_interface_status") as interface_status:
+            interface_status.side_effect = [
+                InterfaceStatus("eth0", "down", False, False, False),
+                InterfaceStatus("wlan0", "missing", False, False, False),
+            ]
+            monitor._heal_network()
+
+        self.assertEqual(actions.restarted_interfaces, [])
+        self.assertEqual(alerts.events, [])
+
+    def test_does_not_restart_user_stopped_container(self):
+        monitor, state, _alerts, actions = self.make_monitor()
+        state.set("auto_heal.containers.active", ["web"])
+        state.set(USER_STOPPED_KEY, ["web"])
+
+        with patch("monitors.autofix.docker.from_env") as docker_from_env:
+            docker_from_env.return_value.containers.list.return_value = [FakeContainer("web", "exited")]
+            monitor._heal_containers()
+
+        self.assertEqual(actions.started, [])
+
+    def test_repair_messages_respect_silence(self):
+        monitor, state, alerts, _actions = self.make_monitor()
+        state.set("auto_heal.containers.active", ["web"])
+
+        with patch("monitors.autofix.docker.from_env") as docker_from_env:
+            docker_from_env.return_value.containers.list.return_value = [FakeContainer("web", "exited")]
+            monitor._heal_containers()
+
+        self.assertFalse(alerts.events[0].get("force", False))
+
+
+class DockerEventTrackingTests(unittest.TestCase):
+    @staticmethod
+    def event(action, name="web"):
+        return {"Action": action, "Actor": {"ID": "abc", "Attributes": {"name": name}}, "time": 0}
+
+    def test_user_stop_is_tracked_and_cleared_on_start(self):
+        state = FakeState()
+        monitor = DockerEventMonitor(state, FakeAutoHealAlerts())
+
+        for action in ("kill", "die", "stop"):
+            monitor._handle_event(self.event(action))
+        self.assertEqual(state.get(USER_STOPPED_KEY), ["web"])
+
+        monitor._handle_event(self.event("start"))
+        self.assertEqual(state.get(USER_STOPPED_KEY), [])
+
+    def test_crash_is_not_treated_as_user_stop(self):
+        state = FakeState()
+        monitor = DockerEventMonitor(state, FakeAutoHealAlerts())
+
+        monitor._handle_event(self.event("die"))
+
+        self.assertIsNone(state.get(USER_STOPPED_KEY))
+
+
+class FakeTelegramNotifier:
+    enabled = True
+    chat_id = "42"
+    bot_token = "token"
+
+    def __init__(self) -> None:
+        self.sent = []
+
+    def send(self, text, force=False):
+        self.sent.append(text)
+
+
+class FakeCommandActions:
+    def __init__(self) -> None:
+        self.restarted = []
+
+    def restart_container(self, name):
+        self.restarted.append(name)
+        return {"ok": True, "message": f"Container restarted: {name}"}
+
+
+class TelegramCommandTests(unittest.TestCase):
+    def make_monitor(self):
+        notifier = FakeTelegramNotifier()
+        actions = FakeCommandActions()
+        monitor = TelegramCommandMonitor({}, FakeState(), notifier, None, actions)
+        return monitor, notifier, actions
+
+    @staticmethod
+    def update(text, age_seconds):
+        return {"message": {"chat": {"id": 42}, "text": text, "date": int(time.time() - age_seconds)}}
+
+    def test_runs_fresh_destructive_command(self):
+        monitor, _notifier, actions = self.make_monitor()
+
+        monitor._handle_update(self.update("/restart web", 5))
+
+        self.assertEqual(actions.restarted, ["web"])
+
+    def test_ignores_stale_destructive_command(self):
+        monitor, notifier, actions = self.make_monitor()
+
+        monitor._handle_update(self.update("/restart web", 3 * 3600))
+
+        self.assertEqual(actions.restarted, [])
+        self.assertEqual(len(notifier.sent), 1)
+        self.assertIn("Ignored /restart", notifier.sent[0])
+
+    def test_drops_stale_read_only_command_silently(self):
+        monitor, notifier, _actions = self.make_monitor()
+
+        monitor._handle_update(self.update("/status", 3 * 3600))
+
+        self.assertEqual(notifier.sent, [])
 
 
 if __name__ == "__main__":
