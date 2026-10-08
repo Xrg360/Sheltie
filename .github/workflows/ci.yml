@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
 
 permissions:
@@ -36,9 +36,41 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Type check
-        run: npx tsc --noEmit
-      - name: Build
+        run: npm run typecheck
+      - name: Design tokens and contrast
+        run: |
+          npm run check:tokens
+          npm run check:contrast
+      - name: Build (server)
         run: npm run build
+      - name: Build (static demo)
+        run: npm run build:demo
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: End-to-end and accessibility tests
+        run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
+
+  website:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - name: Build website
+        working-directory: website
+        run: |
+          npm ci
+          npm run typecheck
+          npm run build
 
   docker:
     runs-on: ubuntu-latest

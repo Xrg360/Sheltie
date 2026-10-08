@@ -10,7 +10,9 @@
     "start": "next start -p 8710",
     "typecheck": "tsc --noEmit",
     "check:tokens": "node scripts/check-tokens.mjs",
-    "check:contrast": "node scripts/check-contrast.mjs"
+    "check:contrast": "node scripts/check-contrast.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "lucide-react": "^0.544.0",

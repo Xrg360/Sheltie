@@ -1,0 +1,25 @@
+{
+  "name": "meerkat-website",
+  "version": "0.2.0",
+  "private": true,
+  "scripts": {
+    "sync": "node scripts/sync.mjs",
+    "dev": "npm run sync && next dev -p 8720",
+    "build": "npm run sync && next build",
+    "typecheck": "npm run sync && tsc --noEmit"
+  },
+  "dependencies": {
+    "lucide-react": "0.544.0",
+    "marked": "16.4.0",
+    "mermaid": "11.12.0",
+    "next": "16.2.9",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "typescript": "^5.9.0"
+  }
+}

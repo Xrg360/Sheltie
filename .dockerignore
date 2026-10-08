@@ -9,3 +9,9 @@ __pycache__
 state
 .env
 server.*.log
+website
+out
+e2e
+test-results
+playwright-report
+docs
