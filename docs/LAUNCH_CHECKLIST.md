@@ -1,12 +1,23 @@
 # Launch and discoverability checklist
 
-Things only the repository owner can do (they need GitHub settings, DNS or personal accounts). Tick them off in order; together they are what makes Meerkat findable.
+Things only the repository owner can do (they need GitHub settings, DNS or personal accounts). Tick them off in order; together they are what makes Sheltie findable.
+
+## 0. Finish the rename to Sheltie
+
+The code, docs and website already say Sheltie (see [BRAND.md](BRAND.md)). These steps need your accounts:
+
+- [ ] **Settings → General → Repository name:** rename `meerkat` to `sheltie`. GitHub redirects the old URLs, clones and stars.
+- [ ] Register `sheltie.dev` (or `.io`) and, if you like, point it at the website. Keep `meerkat.simplewebsite.in` redirecting to the new site for at least a year.
+- [ ] DNS: add the `sheltie` CNAME (section 2 below) before merging, so the new `CNAME` file resolves.
+- [ ] After the first `sheltie` release, make the new GHCR package public and add a note to the old `meerkat` package pointing to it.
+- [ ] Rename the Telegram bot's display name with @BotFather (`/setname`) if it still says Meerkat.
+- [ ] Optional: a USPTO/EUIPO trademark search for "Sheltie" (classes 9 and 42) before any paid marketing.
 
 ## 1. Repository settings (10 minutes)
 
 - [ ] **About → Description:**
   `Self-hosted homelab monitoring that tells you what happened while you were offline: uptime, Docker, network failover, auto-heal and Telegram alerts.`
-- [ ] **About → Website:** `https://meerkat.simplewebsite.in`
+- [ ] **About → Website:** `https://sheltie.simplewebsite.in`
 - [ ] **About → Topics:** `homelab` `self-hosted` `monitoring` `uptime-monitor` `docker` `telegram-bot` `raspberry-pi` `alerting` `auto-heal` `status-page` `prometheus` `uptime-kuma-alternative` `power-outage` `nextjs` `python`
 - [ ] **Settings → General → Social preview:** upload [`docs/assets/social-preview.png`](assets/social-preview.png) (1280×640).
 - [ ] **Settings → General → Features:** enable **Discussions** (the issue templates link to it).
@@ -15,15 +26,15 @@ Things only the repository owner can do (they need GitHub settings, DNS or perso
 
 ## 2. Website on the custom domain
 
-- [ ] DNS for `simplewebsite.in`: add `CNAME meerkat → xrg360.github.io`.
-- [ ] **Settings → Pages:** Source **GitHub Actions**, custom domain `meerkat.simplewebsite.in`, then **Enforce HTTPS**.
-- [ ] Merge the PR, then confirm the **Website** workflow deployed and `https://meerkat.simplewebsite.in/demo/` opens.
-- [ ] Add the site to **Google Search Console** and **Bing Webmaster Tools**, and submit `https://meerkat.simplewebsite.in/sitemap.xml`.
+- [ ] DNS for `simplewebsite.in`: add `CNAME sheltie → xrg360.github.io`.
+- [ ] **Settings → Pages:** Source **GitHub Actions**, custom domain `sheltie.simplewebsite.in`, then **Enforce HTTPS**.
+- [ ] Merge the PR, then confirm the **Website** workflow deployed and `https://sheltie.simplewebsite.in/demo/` opens.
+- [ ] Add the site to **Google Search Console** and **Bing Webmaster Tools**, and submit `https://sheltie.simplewebsite.in/sitemap.xml`.
 
 ## 3. First release
 
-- [ ] Tag `v0.2.0` (`git tag v0.2.0 && git push origin v0.2.0`). The release workflow publishes `ghcr.io/xrg360/meerkat:0.2.0` and `:latest` for amd64 and arm64.
-- [ ] Make the GHCR package **public** (Packages → meerkat → Package settings → Change visibility).
+- [ ] Tag `v0.2.0` (`git tag v0.2.0 && git push origin v0.2.0`). The release workflow publishes `ghcr.io/xrg360/sheltie:0.2.0` and `:latest` for amd64 and arm64.
+- [ ] Make the GHCR package **public** (Packages → sheltie → Package settings → Change visibility).
 - [ ] Write GitHub release notes with the hero screenshot and a link to the live demo.
 
 ## 4. Community scaffolding
@@ -38,9 +49,9 @@ Lead with the story, not the feature list: *"My ISP dropped overnight and my das
 
 - [ ] r/selfhosted (Saturday morning US time tends to work best)
 - [ ] r/homelab
-- [ ] Show HN: `Show HN: Meerkat – homelab monitoring that tells you what happened while you were offline`
+- [ ] Show HN: `Show HN: Sheltie – homelab monitoring that tells you what happened while you were offline`
 - [ ] selfh.st newsletter submission
-- [ ] AlternativeTo: list Meerkat as an alternative to Uptime Kuma, Beszel and Netdata
+- [ ] AlternativeTo: list Sheltie as an alternative to Uptime Kuma, Beszel and Netdata
 - [ ] Product Hunt (after the outbox/digest feature ships, so the story is complete)
 - [ ] awesome-selfhosted (eligible about 4 months after the first release; needs the license and a working demo)
 - [ ] awesome-homelab and awesome-docker lists

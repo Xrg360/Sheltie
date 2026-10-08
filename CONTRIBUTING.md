@@ -1,10 +1,10 @@
-# Contributing to Meerkat
+# Contributing to Sheltie
 
-Thanks for helping Meerkat keep watch. Contributions of every size are welcome, from typo fixes to new monitors, notifiers and repair actions.
+Thanks for helping Sheltie keep watch. Contributions of every size are welcome, from typo fixes to new monitors, notifiers and repair actions.
 
 ## Where to start
 
-- Issues labelled [`good first issue`](https://github.com/xrg360/meerkat/labels/good%20first%20issue) are scoped to one evening.
+- Issues labelled [`good first issue`](https://github.com/xrg360/sheltie/labels/good%20first%20issue) are scoped to one evening.
 - Issues labelled `plugin` are self-contained monitors, notifiers or actions (see [docs/ROADMAP.md](docs/ROADMAP.md#7-missing-features--contributor-backlog)).
 - For anything larger, open a feature request first so the design can be agreed before you write code.
 
@@ -34,11 +34,11 @@ npm ci
 Run the monitor API and the web app in two terminals:
 
 ```bash
-MEERKAT_API_PORT=8711 python app.py
+SHELTIE_API_PORT=8711 python app.py
 npm run dev        # http://127.0.0.1:8710
 ```
 
-Telegram is optional; without a token Meerkat logs the messages it would have sent.
+Telegram is optional; without a token Sheltie logs the messages it would have sent.
 
 ## Checks to run before opening a PR
 
@@ -65,7 +65,7 @@ A formal plugin API (entry points with config schemas) is planned. See [docs/ARC
 
 ## UI work
 
-The dashboard has a written design contract: **read [DESIGN.md](DESIGN.md) first**. It explains who Meerkat is for, the principles, the invariants that must not change, the Savanna tokens and the components to reuse.
+The dashboard has a written design contract: **read [DESIGN.md](DESIGN.md) first**. It explains who Sheltie is for, the principles, the invariants that must not change, the Savanna tokens and the components to reuse.
 
 ```bash
 npm run dev:demo         # dashboard with simulated data, no backend needed
@@ -90,7 +90,7 @@ Attach light, dark and mobile screenshots to UI pull requests. Changes to the de
 
 ## Licensing
 
-Meerkat is licensed under [Apache-2.0](LICENSE). By submitting a contribution you agree it is licensed under the same terms (Apache-2.0 section 5).
+Sheltie is licensed under [Apache-2.0](LICENSE). By submitting a contribution you agree it is licensed under the same terms (Apache-2.0 section 5).
 
 ## Code of conduct
 

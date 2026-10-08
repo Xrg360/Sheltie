@@ -1,6 +1,6 @@
 # Competitive analysis
 
-This page compares Meerkat with the tools homelab users already run, and explains where Meerkat fits. The figures are approximate as of October 2026. Check each project for current details.
+This page compares Sheltie with the tools homelab users already run, and explains where Sheltie fits. The figures are approximate as of October 2026. Check each project for current details.
 
 ## Landscape
 
@@ -16,7 +16,7 @@ This page compares Meerkat with the tools homelab users already run, and explain
 
 ## Feature comparison
 
-| Capability | Uptime Kuma | Beszel | Gatus | Netdata | healthchecks.io | docker-autoheal | **Meerkat** |
+| Capability | Uptime Kuma | Beszel | Gatus | Netdata | healthchecks.io | docker-autoheal | **Sheltie** |
 |---|---|---|---|---|---|---|---|
 | HTTP, TCP, DNS and ping endpoint checks | ✅ many types | ❌ | ✅ | partial | ❌ | ❌ | HTTP today, more planned |
 | Host metrics (CPU, RAM, disk, temperature) | ❌ | ✅ | ❌ | ✅✅ | ❌ | ❌ | ✅ |
@@ -33,7 +33,7 @@ This page compares Meerkat with the tools homelab users already run, and explain
 | Multi-host | ❌ | ✅ | ❌ | Cloud or parent | n/a | ❌ | planned (Phase 4) |
 | Prometheus `/metrics` | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ✅ |
 
-## Where Meerkat wins
+## Where Sheltie wins
 
 Each competitor answers one question well:
 
@@ -41,21 +41,21 @@ Each competitor answers one question well:
 - **Beszel and Netdata:** "How are my servers doing?"
 - **healthchecks.io:** "Did my job or host stop checking in?"
 
-**Meerkat answers: "Something broke at home while I was away. What happened, did it fix itself, and what do I need to do?"**
+**Sheltie answers: "Something broke at home while I was away. What happened, did it fix itself, and what do I need to do?"**
 
 No other tool combines these:
 
 1. **Outage-awareness.** Alerts survive the outage that caused them, and you get one clear digest when connectivity returns.
-2. **Downtime forensics.** On boot, Meerkat says whether the host crashed, was rebooted, or lost power, and for how long.
+2. **Downtime forensics.** On boot, Sheltie says whether the host crashed, was rebooted, or lost power, and for how long.
 3. **Intent-aware self-healing.** Crashed containers and NICs that have a link but no address get repaired, but a `docker stop` or an unplugged cable is left alone.
 4. **Network-path awareness.** Ethernet/Wi-Fi failover, default-route changes, and (planned) gateway vs. DNS vs. ISP root cause.
 5. **Chat-ops.** You can check status and run repairs from your phone, with protection against stale commands.
 
-## Where Meerkat should not compete
+## Where Sheltie should not compete
 
-- **Public status pages and dozens of probe types.** Uptime Kuma owns this. Meerkat should push heartbeats *to* Uptime Kuma rather than replace it.
-- **Per-second metric dashboards.** Netdata and Prometheus/Grafana own this. Meerkat exposes `/metrics` so it can sit next to them.
-- **Large fleets.** Beszel and Prometheus scale further. Meerkat's hub mode is aimed at a handful of sites (home, office, VPS).
+- **Public status pages and dozens of probe types.** Uptime Kuma owns this. Sheltie should push heartbeats *to* Uptime Kuma rather than replace it.
+- **Per-second metric dashboards.** Netdata and Prometheus/Grafana own this. Sheltie exposes `/metrics` so it can sit next to them.
+- **Large fleets.** Beszel and Prometheus scale further. Sheltie's hub mode is aimed at a handful of sites (home, office, VPS).
 
 ## Integration strategy
 

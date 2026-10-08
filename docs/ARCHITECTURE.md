@@ -1,6 +1,6 @@
-# Meerkat architecture
+# Sheltie architecture
 
-This document describes how Meerkat works today and the architecture it is moving towards. The target design is built around one promise: **Meerkat tells you what happened while you were offline**, whether the cause was a dropped ISP link, a power cut, or the server itself being down.
+This document describes how Sheltie works today and the architecture it is moving towards. The target design is built around one promise: **Sheltie tells you what happened while you were offline**, whether the cause was a dropped ISP link, a power cut, or the server itself being down.
 
 - [Current architecture](#current-architecture)
 - [Target architecture](#target-architecture)
@@ -14,9 +14,9 @@ This document describes how Meerkat works today and the architecture it is movin
 
 ```mermaid
 flowchart LR
-  subgraph Container["meerkat container - privileged, host network"]
+  subgraph Container["sheltie container - privileged, host network"]
     direction TB
-    NEXT["Next.js :8710<br/>proxy /api/meerkat/*"] -->|HTTP| API["Python stdlib HTTP :8711<br/>monitors/api.py"]
+    NEXT["Next.js :8710<br/>proxy /api/sheltie/*"] -->|HTTP| API["Python stdlib HTTP :8711<br/>monitors/api.py"]
     MAIN["app.py main loop<br/>sequential checks every 30s"] --> AM["AlertManager"]
     DOCK["DockerEventMonitor thread"] --> AM
     HEAL["AutoHeal thread - 5m"] --> AM
@@ -62,7 +62,7 @@ The agent stays in **Python** because it is contributor-friendly, already works,
 
 ```mermaid
 flowchart TB
-  subgraph Agent["meerkat-agent - single asyncio process, tini as PID 1"]
+  subgraph Agent["sheltie-agent - single asyncio process, tini as PID 1"]
     direction TB
     SCHED["Scheduler<br/>per-monitor interval and jitter<br/>timeouts, concurrency limit<br/>monotonic clock"]
     subgraph Plugins["Plugin registry - Python entry points"]
@@ -83,7 +83,7 @@ flowchart TB
     API --> UI["Static web UI"]
     CHAT["Chat-ops bots<br/>stale-command guard, roles"] --> API
   end
-  SCLIENT -->|outbound HTTPS only| SENTINEL["Meerkat Sentinel - off-site"]
+  SCLIENT -->|outbound HTTPS only| SENTINEL["Sheltie Sentinel - off-site"]
 ```
 
 ### Deployment topology
@@ -93,8 +93,8 @@ The design treats three failure layers separately: the WAN link, power, and the 
 ```mermaid
 flowchart LR
   subgraph Home["Home or lab"]
-    A1["meerkat-agent<br/>main server"]
-    A2["meerkat-agent<br/>Raspberry Pi on UPS"]
+    A1["sheltie-agent<br/>main server"]
+    A2["sheltie-agent<br/>Raspberry Pi on UPS"]
     UPS["UPS via NUT"]
     UPS --> A1
     UPS --> A2
@@ -104,7 +104,7 @@ flowchart LR
     A2 --> LAN
   end
   subgraph Offsite["Off-site, free tier"]
-    S["Meerkat Sentinel<br/>Cloudflare Worker, fly.io or VPS<br/>or healthchecks.io and Uptime Kuma push"]
+    S["Sheltie Sentinel<br/>Cloudflare Worker, fly.io or VPS<br/>or healthchecks.io and Uptime Kuma push"]
   end
   A1 -->|"heartbeat and snapshot"| S
   A2 -->|"heartbeat and snapshot"| S
@@ -205,7 +205,7 @@ How the boot classifier decides what happened:
 The agent cannot report its own death, so the watcher must live off the host:
 
 1. **`heartbeat.urls`**: ping healthchecks.io, an Uptime Kuma push monitor or any similar URL. This works on day one.
-2. **Meerkat Sentinel**: a small open-source receiver that stores the last snapshot, so a missed heartbeat produces a contextual alert ("last seen with WAN degraded and UPS at 14%").
+2. **Sheltie Sentinel**: a small open-source receiver that stores the last snapshot, so a missed heartbeat produces a contextual alert ("last seen with WAN degraded and UPS at 14%").
 3. **Peer mesh**: two agents on the same LAN watch each other and alert through their own channels.
 4. **Self-health**: each internal task has a watchdog, and the Docker `HEALTHCHECK` reports watchdog state.
 
@@ -213,7 +213,7 @@ The agent cannot report its own death, so the watcher must live off the host:
 
 ## Plugin interface (planned)
 
-Plugins are discovered through Python entry points (`meerkat.monitors`, `meerkat.notifiers`, `meerkat.actions`), so a plugin can live in its own package or inside this repository.
+Plugins are discovered through Python entry points (`sheltie.monitors`, `sheltie.notifiers`, `sheltie.actions`), so a plugin can live in its own package or inside this repository.
 
 ```python
 class Monitor(Protocol):
