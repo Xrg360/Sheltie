@@ -9,17 +9,17 @@
     "typecheck": "npm run sync && tsc --noEmit"
   },
   "dependencies": {
-    "lucide-react": "0.544.0",
-    "marked": "16.4.0",
-    "mermaid": "11.12.0",
-    "next": "16.2.9",
-    "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "lucide-react": "1.52.0",
+    "marked": "18.1.0",
+    "mermaid": "12.1.0",
+    "next": "16.3.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.6.4",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "typescript": "^5.9.0"
+    "typescript": "^7.0.2"
   }
 }
