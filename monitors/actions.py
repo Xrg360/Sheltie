@@ -1,11 +1,79 @@
 import platform
+import re
 import shutil
 import subprocess
 import time
 from urllib.parse import urlparse
 from typing import Any
 
-from monitors.alerts import clear_silence, set_silence
+from monitors.alerts import SEVERITY_ORDER, clear_silence, parse_duration, set_silence
+
+
+# Site names end up in Telegram messages, Prometheus labels and HTML, so keep them plain.
+SITE_NAME_PATTERN = re.compile(r"^[\w .()-]{1,64}$")
+MAX_SITE_TIMEOUT = 60.0
+
+
+def normalize_site(site: dict[str, Any]) -> dict[str, Any]:
+    """Validate a runtime site monitor and return the stored form. Raises ValueError with a readable message."""
+    name = str(site.get("name") or "").strip()
+    if not name:
+        raise ValueError("site name is required")
+    if not SITE_NAME_PATTERN.match(name):
+        raise ValueError("site name may only use letters, numbers, spaces and . _ - ( ), up to 64 characters")
+
+    url = str(site.get("url") or "").strip()
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ValueError("site URL must start with http:// or https://")
+    if len(url) > 2048 or any(ch.isspace() for ch in url):
+        raise ValueError("site URL must be a single line up to 2048 characters")
+
+    raw_status = site.get("expected_status") or [200]
+    if not isinstance(raw_status, list):
+        raw_status = [raw_status]
+    expected_status = []
+    for code in raw_status:
+        try:
+            value = int(str(code).strip())
+        except ValueError:
+            raise ValueError("expected_status must be HTTP status codes such as 200") from None
+        if not 100 <= value <= 599:
+            raise ValueError("expected_status codes must be between 100 and 599")
+        expected_status.append(value)
+
+    try:
+        timeout = float(site.get("timeout", 10))
+    except (TypeError, ValueError):
+        raise ValueError("timeout must be a number of seconds") from None
+    if not 0 < timeout <= MAX_SITE_TIMEOUT:
+        raise ValueError(f"timeout must be greater than 0 and at most {MAX_SITE_TIMEOUT:g} seconds")
+
+    severity = str(site.get("severity") or "critical").lower()
+    if severity not in SEVERITY_ORDER:
+        raise ValueError(f"severity must be one of: {', '.join(SEVERITY_ORDER)}")
+
+    normalized: dict[str, Any] = {
+        "name": name,
+        "url": url,
+        "expected_status": expected_status,
+        "timeout": timeout,
+        "follow_redirects": bool(site.get("follow_redirects", True)),
+        "severity": severity,
+    }
+    for field, default in (("duration", "30s"), ("cooldown", "15m")):
+        value = site.get(field, default)
+        try:
+            if parse_duration(value) < 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            raise ValueError(f"{field} must be a duration such as 30s, 5m or 1h") from None
+        normalized[field] = value
+
+    keyword = str(site.get("keyword") or "").strip()
+    if keyword:
+        normalized["keyword"] = keyword[:256]
+    return normalized
 
 
 class ActionService:
@@ -107,30 +175,16 @@ class ActionService:
     def add_site(self, site: dict[str, Any]) -> dict[str, Any]:
         if not self.enabled:
             return {"ok": False, "error": "actions are disabled"}
+        if not isinstance(site, dict):
+            return {"ok": False, "error": "site must be a JSON object"}
 
-        name = str(site.get("name") or "").strip()
-        url = str(site.get("url") or "").strip()
-        parsed = urlparse(url)
-        if not name:
-            return {"ok": False, "error": "site name is required"}
-        if parsed.scheme not in ("http", "https") or not parsed.netloc:
-            return {"ok": False, "error": "site URL must start with http:// or https://"}
+        try:
+            normalized = normalize_site(site)
+        except ValueError as exc:
+            return {"ok": False, "error": str(exc)}
 
+        name = normalized["name"]
         runtime_sites = list(self.state.get("sites.custom", []))
-        normalized = {
-            "name": name,
-            "url": url,
-            "expected_status": site.get("expected_status") or [200],
-            "timeout": float(site.get("timeout", 10)),
-            "follow_redirects": bool(site.get("follow_redirects", True)),
-            "severity": site.get("severity", "critical"),
-            "duration": site.get("duration", "30s"),
-            "cooldown": site.get("cooldown", "15m"),
-        }
-        keyword = str(site.get("keyword") or "").strip()
-        if keyword:
-            normalized["keyword"] = keyword
-
         runtime_sites = [existing for existing in runtime_sites if str(existing.get("name", "")).lower() != name.lower()]
         runtime_sites.append(normalized)
         self.state.set("sites.custom", runtime_sites)
