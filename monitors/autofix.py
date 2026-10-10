@@ -12,6 +12,8 @@ from monitors.network import get_interface_status
 # Containers stopped on purpose (docker stop / compose stop) are tracked from
 # Docker events so auto-heal does not fight the operator.
 USER_STOPPED_KEY = "auto_heal.containers.user_stopped"
+# Label a container `sheltie.autoheal=false` to keep auto-heal away from it.
+AUTOHEAL_LABEL = "sheltie.autoheal"
 
 
 class AutoHealMonitor:
@@ -75,6 +77,8 @@ class AutoHealMonitor:
                 continue
             if name not in active_names or name in user_stopped:
                 continue
+            if not self._heal_allowed(container):
+                continue
             if not self._cooldown_elapsed(f"auto_heal.containers.{name}.last_repair"):
                 continue
 
@@ -123,6 +127,18 @@ class AutoHealMonitor:
             )
 
         self.state.set("auto_heal.network.active", sorted(active_interfaces))
+
+    @staticmethod
+    def _heal_allowed(container: Any) -> bool:
+        labels = getattr(container, "labels", None) or {}
+        if str(labels.get(AUTOHEAL_LABEL, "")).lower() in ("false", "0", "no", "off"):
+            return False
+        # Exit code 0 means the container finished its job (a one-shot task or migration).
+        # Starting it again every few minutes would rerun that job forever.
+        container_state = (getattr(container, "attrs", None) or {}).get("State") or {}
+        if container.status == "exited" and container_state.get("ExitCode") == 0:
+            return False
+        return True
 
     @staticmethod
     def _repairable(label: str, status: Any) -> bool:

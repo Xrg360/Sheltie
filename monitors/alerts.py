@@ -47,9 +47,13 @@ def parse_duration(value: Any, default: int = 0) -> int:
         "h": 3600,
         "hour": 3600,
         "hours": 3600,
+        "d": 86400,
+        "day": 86400,
+        "days": 86400,
     }
 
-    for suffix, multiplier in units.items():
+    # Longest suffix first, so "5minutes" is not read as "5minute" + "s".
+    for suffix, multiplier in sorted(units.items(), key=lambda item: len(item[0]), reverse=True):
         if text.endswith(suffix):
             number = text[: -len(suffix)].strip()
             return int(float(number) * multiplier)

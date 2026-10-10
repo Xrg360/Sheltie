@@ -51,7 +51,7 @@ docker run -d --name sheltie --restart unless-stopped --privileged --network hos
   ghcr.io/xrg360/sheltie:latest
 ```
 
-Open `http://<server-ip>:8710`. The action token is printed once in `docker logs sheltie`. Add Telegram with two environment variables (see [Telegram](#telegram-botfather-commands)).
+Open `http://<server-ip>:8710`. To read the generated action token, run `docker exec sheltie python -c "import json; print(json.load(open('state/state.json'))['api.action_token'])"`, or set your own with `SHELTIE_ACTION_TOKEN`. Add Telegram with two environment variables (see [Telegram](#telegram-commands)).
 
 ## Features
 
@@ -64,7 +64,7 @@ Open `http://<server-ip>:8710`. The action token is printed once in `docker logs
 | **Network failover awareness** | Ethernet and Wi-Fi state, default-route changes and internet reachability, shown as a connection path. |
 | **Website and service checks** | HTTP status, latency, redirects and keyword checks, with uptime bars, average and p95 response time. |
 | **Host health** | CPU, RAM, disk and CPU temperature with thresholds, durations and cooldowns. |
-| **Two-way Telegram** | State-change-only alerts plus `/status`, `/docker`, `/restart`, `/silence` and more. Stale commands queued during an outage are ignored safely. |
+| **Two-way Telegram** | State-change-only alerts plus 24 commands: `/alerts`, `/logs`, `/stats`, `/start`/`/stop`/`/restart`, `/checksite`, `/ping`, `/silence 2h` and more ([full list](#telegram-commands)). Stale commands queued during an outage are ignored safely. |
 | **Silence with expiry** | Silence alerts for 1 hour, 4 hours or until resumed, from the dashboard or Telegram. |
 | **Fast for experts** | `⌘K` command palette, `g`-shortcuts, REST API and Prometheus `/metrics`. |
 | **Private and accessible** | No telemetry or external requests from the dashboard. WCAG 2.2 AA checked in CI on every page. |
@@ -154,12 +154,12 @@ docker compose up -d
 Web app and API:
 
 ```text
-http://<server-ip>:8710/            Dashboard (Overview, Incidents, Monitors, Containers, Network, Host, Settings)
-http://<server-ip>:8711/api/status  Python API
-http://<server-ip>:8711/metrics     Prometheus metrics
+http://<server-ip>:8710/                    Dashboard (Overview, Incidents, Monitors, Containers, Network, Host, Settings)
+http://<server-ip>:8710/api/sheltie/status  Python API, through the dashboard's proxy
+http://<server-ip>:8710/api/sheltie/metrics Prometheus metrics
 ```
 
-The Next.js web app is served on port `8710`. The Python monitor API runs internally on `8711`, and the web app proxies backend requests through `/api/sheltie/*` using `SHELTIE_API_BASE=http://127.0.0.1:8711`.
+The Next.js web app is served on port `8710`. The Python monitor API listens on `127.0.0.1:8711` only, and the web app proxies backend requests through `/api/sheltie/*` using `SHELTIE_API_BASE=http://127.0.0.1:8711`. Set `api.host: 0.0.0.0` (or `SHELTIE_API_HOST`) only if another machine must call the API directly.
 
 View logs:
 
@@ -250,35 +250,88 @@ npm run dev:demo
 
 Before changing the UI, read [DESIGN.md](DESIGN.md).
 
-## Telegram BotFather Commands
+## Telegram Commands
 
-Sheltie reads these Telegram commands from your configured `TELEGRAM_CHAT_ID`:
+Sheltie answers these commands, but only from your configured `TELEGRAM_CHAT_ID`. Messages from any other chat are ignored.
+
+### Overview
+
+| Command | What it does | Example |
+|---|---|---|
+| `/status` | Current monitor state: alerts, internet, Ethernet, Wi-Fi and default route | `/status` |
+| `/alerts` | Active alerts and how long each has been firing | `/alerts` |
+| `/events [n]` | Last `n` events from history (default 10, max 30) | `/events 20` |
+| `/health` | CPU, RAM, disk and CPU temperature | `/health` |
+| `/uptime` | Host uptime, Sheltie uptime, load average and swap | `/uptime` |
+| `/disk` | Usage and free space for each path in `disk.paths` | `/disk` |
+| `/network` | Interface state and internet reachability | `/network` |
+| `/ip` | LAN and Tailscale addresses, plus the public IP (from Cloudflare's trace endpoint) | `/ip` |
+| `/ping <host>` | Three pings with packet loss and min/avg/max round-trip time | `/ping 1.1.1.1` |
+| `/version` | Sheltie version and when it started | `/version` |
+
+### Containers
+
+| Command | What it does | Example |
+|---|---|---|
+| `/docker` | All containers and their state | `/docker` |
+| `/stats [container]` | CPU and memory: the top 5 containers, or one container | `/stats npm` |
+| `/logs <container> [lines]` | The last log lines (default 30, max 100). Telegram tokens are redacted | `/logs cloudflared 50` |
+| `/restart <container>` | Restart a container | `/restart npm` |
+| `/start <container>` | Start a stopped container. On its own, `/start` shows the help | `/start hermes` |
+| `/stop <container>` | Stop a container. Auto-heal leaves it stopped until you start it | `/stop hermes` |
+
+### Websites
+
+| Command | What it does | Example |
+|---|---|---|
+| `/sites` | Website monitors with status code and latency | `/sites` |
+| `/checksite <name>` | Check one website right now and show status, latency and error | `/checksite Cloudflare DNS` |
+| `/addsite <name> <url>` | Add a runtime website monitor | `/addsite portfolio https://portfolio.simplewebsite.in` |
+| `/removesite <name>` | Remove a runtime website monitor | `/removesite portfolio` |
+
+### Alerts and host
+
+| Command | What it does | Example |
+|---|---|---|
+| `/silence [duration]` | Pause alert messages until `/resume`, or for a duration such as `30m`, `2h` or `1d` | `/silence 2h` |
+| `/resume` | Resume alert messages | `/resume` |
+| `/clearcache` | Drop the Linux page cache | `/clearcache` |
+| `/help` | Show all commands | `/help` |
+
+Containers in `actions.blocked_containers` (Sheltie itself by default) can't be restarted, started or stopped from Telegram. When `actions.enabled` is `false`, every command that changes something is refused, including `/silence` and `/resume`.
+
+Commands that change something (`/restart`, `/start <container>`, `/stop`, `/clearcache`, `/addsite`, `/removesite`, `/silence`, `/resume`) are ignored if they are older than `telegram.command_max_age` (5 minutes by default). This stops a command sent during an outage from running hours later. Sheltie replies to say the command was ignored.
+
+### BotFather menu
+
+To get the command menu in Telegram, send `/setcommands` to BotFather, select your Sheltie bot, then paste:
 
 ```text
-start - Show Sheltie bot info
-status - Show current monitor state
-health - Show CPU RAM disk and temperature
-network - Show interface and internet state
-docker - Show Docker containers
-sites - Show website monitors
+status - Current monitor state
+alerts - Active alerts and how long they have been firing
+events - Last events. Usage: /events 20
+health - CPU RAM disk and temperature
+uptime - Host and Sheltie uptime, load and swap
+disk - Disk usage for monitored paths
+network - Interfaces and internet state
+ip - LAN, Tailscale and public IP addresses
+ping - Ping a host. Usage: /ping 1.1.1.1
+docker - All Docker containers
+stats - Container CPU and memory. Usage: /stats or /stats name
+logs - Container logs. Usage: /logs name 50
+restart - Restart a container. Usage: /restart name
+start - Start a container. Usage: /start name
+stop - Stop a container. Usage: /stop name
+sites - Website monitors
+checksite - Check a website now. Usage: /checksite name
 addsite - Add a website monitor. Usage: /addsite name https://example.com
 removesite - Remove a runtime website monitor. Usage: /removesite name
-restart - Restart a Docker container. Usage: /restart container_name
+silence - Pause alerts. Usage: /silence or /silence 2h
+resume - Resume alerts
 clearcache - Clear Linux RAM caches
-silence - Pause monitor alerts
-resume - Resume monitor alerts
-help - Show available commands
+version - Sheltie version
+help - Show all commands
 ```
-
-Commands that change something (`/restart`, `/clearcache`, `/addsite`, `/removesite`, `/silence`, `/resume`) are ignored if they are older than `telegram.command_max_age` (5 minutes by default). This stops a command sent during an outage from running hours later. Sheltie replies to say the command was ignored.
-
-In BotFather:
-
-```text
-/setcommands
-```
-
-Select your Sheltie bot, then paste the command list above.
 
 ## Telegram Troubleshooting
 
@@ -351,7 +404,7 @@ alerting:
 
 api:
   enabled: true
-  host: 0.0.0.0
+  host: 127.0.0.1
   port: 8711
 
 actions:
@@ -437,7 +490,7 @@ cpu:
 ```text
 Python API:
 
-GET  /health
+GET  /health        Liveness: 503 when the check loop has stalled (used by the Docker healthcheck)
 GET  /status
 GET  /api/status
 GET  /api/health
@@ -463,7 +516,11 @@ POST /api/sheltie/actions/...
 
 `/metrics` is Prometheus-compatible.
 
-Action endpoints always require `X-Sheltie-Action-Token`. Set it with `SHELTIE_ACTION_TOKEN` or `actions.token`. If neither is set, Sheltie generates a random token on first start, prints it once in `docker logs sheltie`, and stores it in `state/state.json` under `api.action_token`.
+Action endpoints always require `X-Sheltie-Action-Token`. Set it with `SHELTIE_ACTION_TOKEN` or `actions.token`. If neither is set, Sheltie generates a random token on first start and stores it in `state/state.json` (mode `0600`) under `api.action_token`. The token is never written to the logs. Read it with:
+
+```bash
+docker exec sheltie python -c "import json; print(json.load(open('state/state.json'))['api.action_token'])"
+```
 
 `POST /api/actions/docker/restart` expects JSON:
 
@@ -488,7 +545,9 @@ For security, action endpoints are intended for trusted LAN deployments or rever
 
 Sheltie runs an internal cron-style auto-heal loop every 5 minutes by default:
 
-- Docker containers that were previously observed as `running` are started again if they are later found stopped, exited, or dead. Containers you stop on purpose (`docker stop`, `docker compose stop`) are left alone until they are started again.
+- Docker containers that were previously observed as `running` are started again if they are later found stopped, exited, or dead. Containers you stop on purpose (`docker stop`, `docker compose stop`, Telegram `/stop`) are left alone until they are started again.
+- Containers that exited with code `0` finished their job (a one-shot task or migration), so they are not started again.
+- Add the label `sheltie.autoheal=false` to a container to keep auto-heal away from it entirely.
 - Configured Ethernet and Wi-Fi interfaces that were previously observed as up are bounced with `ip link set dev <interface> down/up` if they later drop. An Ethernet port with no carrier (unplugged cable) or an interface that no longer exists is not bounced.
 - Repairs are recorded in event history and sent through Telegram. `/silence` mutes these messages too.
 - `actions.blocked_containers` is respected, so Sheltie does not restart itself by default.

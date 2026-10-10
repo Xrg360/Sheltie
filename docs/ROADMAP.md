@@ -44,8 +44,14 @@ Status: ✅ fixed on this branch · 🟡 planned (phase noted)
 | 4 | The Python API `/` raised `TypeError`. `dashboard_html` was defined four times and the last copy took no arguments. That was about 2,000 lines of dead HTML. | `monitors/api.py` | ✅ Dead copies removed, all pages render |
 | 5 | Auto-heal fought the user: it restarted containers after a deliberate `docker stop` and bounced unplugged Ethernet forever. | `monitors/autofix.py` | ✅ It now respects user stops (from Docker events) and skips links with no carrier or a missing interface |
 | 6 | Auto-heal messages bypassed `/silence`. | `monitors/autofix.py` | ✅ |
-| 7 | Python runs in the background behind Node (PID 1) with no supervision, and SIGTERM never reaches it. | `Dockerfile` | 🟡 Phase 3 (single process under `tini`) |
+| 7 | Python runs in the background behind Node (PID 1) with no supervision, and SIGTERM never reaches it. | `Dockerfile` | ✅ `tini` + `scripts/entrypoint.sh` signal both processes and exit if either dies. `/health` fails when the check loop stalls. 🟡 Single process in Phase 3 |
 | 8 | No LICENSE file. | repo root | ✅ Apache-2.0 |
+| 18 | The Telegram bot token was written to `docker logs`: `requests` puts the URL (which contains the token) in its exception messages. | `monitors/commands.py`, `monitors/telegram.py` | ✅ `redact()` on every Telegram error log and on `/logs` output |
+| 19 | The generated action token was printed in the logs, and `state.json` was world-readable. | `monitors/api.py`, `monitors/state.py` | ✅ Never logged. `state.json` and `history.db` are `0600` |
+| 20 | One bad runtime site (`expected_status: "200"`, negative timeout, bad duration) aborted `check_sites` on every cycle, which stopped all site monitoring. | `monitors/actions.py`, `monitors/sites.py` | ✅ `normalize_site()` validates input, and each site is checked in its own `try` |
+| 21 | XSS in the legacy `:8711` dashboard: site names were interpolated into inline `onclick` JavaScript, which could leak the action token from `localStorage`. | `monitors/api.py` | ✅ Names pass through `data-name`. Site names are also restricted to plain characters |
+| 22 | Site and interface names could inject lines into `/metrics`. Malformed requests dropped the connection instead of returning an error. | `monitors/api.py` | ✅ Label escaping, 400/500 JSON errors. The API binds to `127.0.0.1` by default |
+| 23 | Auto-heal restarted finished one-shot containers (exit code 0) forever. | `monitors/autofix.py` | ✅ Skipped, plus the `sheltie.autoheal=false` opt-out label |
 
 ### P1: resilience
 
@@ -54,12 +60,12 @@ Status: ✅ fixed on this branch · 🟡 planned (phase noted)
 | 9 | `state.json` is rewritten in full on every `set()` with no fsync and no backup. Corruption silently resets all state and wears SD cards. | `monitors/state.py`, `monitors/sites.py` | 🟡 Phase 1 (SQLite store) |
 | 10 | No detection of power cuts or downtime. The boot message does not say how long the host was down or why. | `app.py` | 🟡 Phase 1 (boot forensics) |
 | 11 | Docker events are lost while the event stream is disconnected (no `since=` on reconnect). | `monitors/docker.py` | 🟡 Phase 1 |
-| 12 | Boot storm: after a power cut, every container start becomes its own Telegram message. There is no rate limit. | `monitors/docker.py`, `monitors/telegram.py` | 🟡 Phase 1 |
+| 12 | Boot storm: after a power cut, every container start becomes its own Telegram message. There is no rate limit. | `monitors/docker.py`, `monitors/telegram.py` | ✅ The Sheltie boot message is sent at most once per 10 min (a crash loop sent 12). 🟡 Container-event digest in Phase 1 |
 | 13 | Telegram commands queued during an outage ran hours later. | `monitors/commands.py` | ✅ Stale destructive commands are ignored, with a reply |
 | 14 | Checks run sequentially, so slow sites (10s timeout each) delay all other checks. | `app.py`, `monitors/sites.py` | 🟡 Phase 1 (async scheduler) |
 | 15 | Durations use the wall clock, which jumps on boards with no RTC after NTP sync. | `monitors/alerts.py` | 🟡 Phase 1 |
 | 16 | The internet check is ICMP only. It cannot tell gateway, ISP and DNS failures apart. | `monitors/internet.py` | 🟡 Phase 1 (WAN dependency chain) |
-| 17 | `history.db` has no retention, and `/silence` has no expiry. | `monitors/history.py`, `monitors/commands.py` | ✅ Silence can expire (dashboard and API). 🟡 History retention in Phase 1 |
+| 17 | `history.db` has no retention, and `/silence` has no expiry. | `monitors/history.py`, `monitors/commands.py` | ✅ Silence can expire (dashboard, API and `/silence 2h`). 🟡 History retention in Phase 1 |
 
 ### P2: quality and developer experience
 
@@ -69,7 +75,7 @@ Status: ✅ fixed on this branch · 🟡 planned (phase noted)
 | `validate_config` required a network interface, which broke on VPS, macOS and Windows hosts. | ✅ Interfaces are optional |
 | `api.port: 8710` in the sample config collided with the web UI. | ✅ Changed to `8711` |
 | `/metrics` and `/api/health` block for 1s on `cpu_percent(interval=1)` and spawn `ip route` on every request. | 🟡 Phase 1 (serve cached readings) |
-| Site checks read the whole response body with no size cap. Disk alert IDs are mangled (`/mnt/x` becomes `rootmntrootx`). | 🟡 good first issue |
+| Site checks read the whole response body with no size cap. Disk alert IDs are mangled (`/mnt/x` becomes `rootmntrootx`). | ✅ Body read is streamed and capped at 1 MiB. 🟡 Disk alert IDs: good first issue |
 | The Next proxy forwards every request header, including cookies, to the backend. The action token is kept in `localStorage`. | ✅ Proxy forwards only the content type and action token. 🟡 Token storage moves to a session login in Phase 3 |
 | The README is written for one specific server and has no screenshots or demo. | ✅ New README with screenshots, live demo and website |
 
