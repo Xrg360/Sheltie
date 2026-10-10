@@ -4,33 +4,65 @@ import json
 import threading
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable
 
+import docker
 import requests
 
-from monitors.alerts import clear_silence, parse_duration, set_silence
+from monitors import __version__
+from monitors.alerts import parse_duration, silence_active
+from monitors.autofix import USER_STOPPED_KEY
+from monitors.internet import ping_stats
+from monitors.sites import configured_sites, probe_site
 from monitors.telegram import redact
 
 
 HELP_TEXT = """Sheltie commands:
 
-/status - Show current monitor state
-/health - Show CPU RAM disk and temperature
-/network - Show interface and internet state
-/docker - Show Docker containers
-/sites - Show website monitors
+Overview
+/status - Current monitor state
+/alerts - Active alerts and how long they have been firing
+/events [n] - Last n events (default 10)
+/health - CPU, RAM, disk and temperature
+/uptime - Host and Sheltie uptime, load and swap
+/disk - Usage for each monitored disk
+/network - Interfaces and internet state
+/ip - LAN, Tailscale and public IP addresses
+/ping <host> - Ping a host 3 times
+/version - Sheltie version
+
+Containers
+/docker - All containers
+/stats [container] - CPU and memory (top 5, or one container)
+/logs <container> [lines] - Last log lines (default 30)
+/restart <container> - Restart a container
+/start <container> - Start a stopped container
+/stop <container> - Stop a container (auto-heal leaves it stopped)
+
+Websites
+/sites - Website monitors
+/checksite <name> - Check one website right now
 /addsite <name> <url> - Add a website monitor
 /removesite <name> - Remove a runtime website monitor
-/restart <container> - Restart a Docker container
+
+Alerts and host
+/silence [30m|2h|1d] - Pause alerts, optionally for a while
+/resume - Resume alerts
 /clearcache - Clear Linux RAM caches
-/silence - Pause monitor alerts
-/resume - Resume monitor alerts
 /help - Show this help"""
 
 
 # Commands that change something. If they were queued while Sheltie was offline,
 # running them late could restart a container hours after it was wanted.
-DESTRUCTIVE_COMMANDS = {"/restart", "/clearcache", "/addsite", "/removesite", "/silence", "/resume"}
+# /start on its own is Telegram's "open the bot" command; only /start <container> acts.
+DESTRUCTIVE_COMMANDS = {"/restart", "/stop", "/start", "/clearcache", "/addsite", "/removesite", "/silence", "/resume"}
+
+# Telegram rejects messages longer than 4096 characters.
+MAX_MESSAGE_CHARS = 3900
+DEFAULT_EVENTS = 10
+MAX_EVENTS = 30
+DEFAULT_LOG_LINES = 30
+MAX_LOG_LINES = 100
 
 
 def usage_bar(value: float, width: int = 10) -> str:
@@ -60,12 +92,67 @@ def temp_label(value: float | None) -> str:
     return "normal"
 
 
+def is_destructive(command: str, args: list[str]) -> bool:
+    if command == "/start":
+        return bool(args)
+    return command in DESTRUCTIVE_COMMANDS
+
+
+def clamp_count(value: str | None, default: int, maximum: int) -> int:
+    if value is None:
+        return default
+    try:
+        return max(1, min(maximum, int(value)))
+    except ValueError:
+        return default
+
+
+def human_bytes(value: float) -> str:
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if abs(value) < 1024 or unit == "TB":
+            return f"{value:.0f}{unit}" if unit in ("B", "KB") else f"{value:.1f}{unit}"
+        value /= 1024
+    return f"{value:.1f}TB"
+
+
+def human_duration(seconds: float) -> str:
+    seconds = int(max(0, seconds))
+    days, rest = divmod(seconds, 86400)
+    hours, rest = divmod(rest, 3600)
+    minutes = rest // 60
+    if days:
+        return f"{days}d {hours}h"
+    if hours:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m" if minutes else f"{seconds}s"
+
+
+def tail_text(text: str, limit: int = MAX_MESSAGE_CHARS) -> str:
+    """Keep the end of a long text (the newest log lines) within a Telegram message."""
+    if len(text) <= limit:
+        return text
+    return "…" + text[-(limit - 1):]
+
+
 def state_icon(value: Any) -> str:
     if value is True:
         return "✅"
     if value is False:
         return "❌"
     return "❔"
+
+
+def public_ip() -> str | None:
+    """The address the internet sees, from Cloudflare's trace endpoint."""
+    try:
+        response = requests.get("https://1.1.1.1/cdn-cgi/trace", timeout=5)
+        response.raise_for_status()
+    except requests.RequestException:
+        return None
+    for line in response.text.splitlines():
+        if line.startswith("ip="):
+            return line[3:].strip()
+    return None
 
 
 class TelegramCommandMonitor:
@@ -188,9 +275,10 @@ class TelegramCommandMonitor:
         command = parts[0].split("@")[0].lower()
         sent_at = float(message.get("date") or time.time())
         age = time.time() - sent_at
+        args = parts[1:]
         if age > self.command_max_age:
             logging.info("Ignoring stale Telegram command %s sent %.0fs ago", command, age)
-            if command in DESTRUCTIVE_COMMANDS:
+            if is_destructive(command, args):
                 sent_label = datetime.fromtimestamp(sent_at).strftime("%Y-%m-%d %H:%M")
                 self.notifier.send(
                     f"⏳ Ignored {command} sent at {sent_label} ({age / 60:.0f} min ago) while Sheltie was offline. "
@@ -200,34 +288,45 @@ class TelegramCommandMonitor:
             return
 
         logging.info("Handling Telegram command %s from chat %s", command, chat_id)
-        handlers = {
-            "/start": self._help,
-            "/help": self._help,
-            "/status": self._status,
-            "/health": self._health,
-            "/network": self._network,
-            "/docker": self._docker,
-            "/sites": self._sites,
-            "/clearcache": self._clear_cache,
+        handlers: dict[str, Callable[[list[str]], str]] = {
+            "/start": self._start,
+            "/help": lambda _args: self._help(),
+            "/status": lambda _args: self._status(),
+            "/health": lambda _args: self._health(),
+            "/network": lambda _args: self._network(),
+            "/docker": lambda _args: self._docker(),
+            "/sites": lambda _args: self._sites(),
+            "/clearcache": lambda _args: self._clear_cache(),
+            "/restart": lambda args: self._restart(args[0] if args else ""),
+            "/addsite": lambda _args: self._add_site(parts),
+            "/removesite": lambda args: self._remove_site(" ".join(args)),
             "/silence": self._silence,
-            "/resume": self._resume,
+            "/resume": lambda _args: self._resume(),
+            "/alerts": lambda _args: self._alerts(),
+            "/events": self._events,
+            "/logs": self._logs,
+            "/stats": self._stats,
+            "/stop": self._stop,
+            "/uptime": lambda _args: self._uptime(),
+            "/disk": lambda _args: self._disk(),
+            "/ip": lambda _args: self._ip(),
+            "/ping": self._ping,
+            "/checksite": self._checksite,
+            "/version": lambda _args: self._version(),
         }
 
-        if command == "/restart":
-            self.notifier.send(self._restart(parts[1] if len(parts) > 1 else ""), force=True)
-            return
-        if command == "/addsite":
-            self.notifier.send(self._add_site(parts), force=True)
-            return
-        if command == "/removesite":
-            self.notifier.send(self._remove_site(parts[1] if len(parts) > 1 else ""), force=True)
-            return
-
         handler = handlers.get(command)
-        if handler:
-            self.notifier.send(handler(), force=True)
-        else:
+        if not handler:
             self.notifier.send("Unknown command. Use /help.", force=True)
+            return
+        try:
+            reply = handler(args)
+        except docker.errors.NotFound:
+            reply = f"⚠️ No container called {args[0] if args else '?'}. Use /docker to list them."
+        except Exception as exc:
+            logging.exception("Telegram command %s failed", command)
+            reply = f"⚠️ {command} failed: {redact(exc, self.notifier.bot_token)}"
+        self.notifier.send(reply, force=True)
 
     def _help(self) -> str:
         return HELP_TEXT
@@ -336,13 +435,179 @@ class TelegramCommandMonitor:
             return f"🔁 Docker restart requested\n\n{result['message']}"
         return f"⚠️ Docker restart failed\n\n{result['error']}"
 
-    def _silence(self) -> str:
-        set_silence(self.state, None)
+    def _silence(self, args: list[str]) -> str:
+        minutes = None
+        if args:
+            try:
+                seconds = parse_duration(args[0])
+            except ValueError:
+                return "Usage: /silence [30m|2h|1d]"
+            if seconds <= 0:
+                return "Usage: /silence [30m|2h|1d]"
+            minutes = seconds / 60
+        result = self.action_service.silence_alerts(minutes)
+        if not result["ok"]:
+            return f"⚠️ Silence failed\n\n{result['error']}"
+        if minutes:
+            return f"🔕 Alerts silenced for {human_duration(minutes * 60)}. Use /resume to enable them sooner."
         return "🔕 Alerts silenced. Use /resume to enable alerts again."
 
     def _resume(self) -> str:
-        clear_silence(self.state)
+        result = self.action_service.resume_alerts()
+        if not result["ok"]:
+            return f"⚠️ Resume failed\n\n{result['error']}"
         return "🔔 Alerts resumed."
+
+    def _start(self, args: list[str]) -> str:
+        if not args:
+            return self._help()
+        result = self.action_service.start_container(args[0])
+        if result["ok"]:
+            # A manual start means the operator wants it running again.
+            stopped = set(self.state.get(USER_STOPPED_KEY, []))
+            stopped.discard(args[0])
+            self.state.set(USER_STOPPED_KEY, sorted(stopped))
+            return f"▶️ Container started\n\n{result['message']}"
+        return f"⚠️ Container start failed\n\n{result['error']}"
+
+    def _stop(self, args: list[str]) -> str:
+        if not args:
+            return "Usage: /stop container_name"
+        result = self.action_service.stop_container(args[0])
+        if result["ok"]:
+            return f"⏹ Container stopped\n\n{result['message']}"
+        return f"⚠️ Container stop failed\n\n{result['error']}"
+
+    def _alerts(self) -> str:
+        active = self.status_service.active_alerts()
+        if not active:
+            return "✅ No active alerts."
+        now = time.time()
+        lines = [f"🚨 Active alerts ({len(active)})", ""]
+        for alert_id in active[:30]:
+            since = self.state.get(f"alerts.{alert_id}.active_since")
+            age = f" - firing for {human_duration(now - float(since))}" if since else ""
+            lines.append(f"• {alert_id}{age}")
+        if silence_active(self.state):
+            lines.extend(["", "🔕 Notifications are silenced. Use /resume."])
+        return "\n".join(lines)
+
+    def _events(self, args: list[str]) -> str:
+        count = clamp_count(args[0] if args else None, DEFAULT_EVENTS, MAX_EVENTS)
+        events = self.status_service.history.recent(count)
+        if not events:
+            return "🗒 No events recorded yet."
+        icons = {"active": "🚨", "recovered": "✅", "changed": "🔄", "event": "ℹ️"}
+        lines = [f"🗒 Last {len(events)} events", ""]
+        for event in events:
+            stamp = str(event.get("ts", ""))[:16].replace("T", " ")
+            lines.append(f"{icons.get(event.get('status'), '•')} {stamp} {event.get('title')}")
+        return tail_text("\n".join(lines))
+
+    def _logs(self, args: list[str]) -> str:
+        if not args:
+            return "Usage: /logs container_name [lines]"
+        name = args[0]
+        lines = clamp_count(args[1] if len(args) > 1 else None, DEFAULT_LOG_LINES, MAX_LOG_LINES)
+        output = redact(self.status_service.container_logs(name, lines), self.notifier.bot_token).strip()
+        if not output:
+            return f"📜 {name}: no log output."
+        return tail_text(f"📜 {name} (last {lines} lines)\n\n{output}")
+
+    def _stats(self, args: list[str]) -> str:
+        usage = self.status_service.container_stats(args[0] if args else None)
+        if not usage:
+            return "🐳 No running containers."
+        rows = [row for row in usage if "error" not in row]
+        rows.sort(key=lambda row: (row["cpu_percent"], row["memory_used"]), reverse=True)
+        title = f"📈 {args[0]}" if args else f"📈 Top {min(5, len(rows))} containers by CPU"
+        lines = [title, ""]
+        for row in rows[: 1 if args else 5]:
+            memory = human_bytes(row["memory_used"])
+            if row.get("memory_percent") is not None:
+                memory += f" ({row['memory_percent']:.0f}%)"
+            lines.append(f"• {row['name']}: CPU {row['cpu_percent']:.1f}% · RAM {memory}")
+        for row in usage:
+            if "error" in row:
+                lines.append(f"• {row['name']}: unavailable ({row['error']})")
+        return "\n".join(lines)
+
+    def _uptime(self) -> str:
+        host = self.status_service.host()
+        load = host.get("load_average")
+        load_text = " / ".join(f"{value:.2f}" for value in load) if load else "unavailable"
+        return "\n".join(
+            [
+                "⏱ Uptime",
+                "",
+                f"🖥 Host: {human_duration(host['uptime_seconds'])}",
+                f"🐕 Sheltie: {human_duration(host['sheltie_uptime_seconds'])}",
+                f"⚖️ Load (1/5/15m): {load_text} on {host.get('cpu_count') or '?'} CPUs",
+                f"🔁 Swap: {human_bytes(host['swap_used'])} of {human_bytes(host['swap_total'])} ({host['swap_percent']:.0f}%)",
+            ]
+        )
+
+    def _disk(self) -> str:
+        lines = ["🗄 Disks", ""]
+        for disk in self.status_service.disks():
+            if "error" in disk:
+                lines.append(f"❔ {disk['path']}: {disk['error']}")
+                continue
+            lines.append(
+                f"{usage_bar(disk['percent'])} {disk['percent']:.0f}% {disk['path']} "
+                f"({human_bytes(disk['free'])} free of {human_bytes(disk['total'])})"
+            )
+        return "\n".join(lines)
+
+    def _ip(self) -> str:
+        lines = ["🧭 Addresses", ""]
+        for interface, ips in self.status_service.addresses().items():
+            lines.append(f"• {interface}: {', '.join(ips)}")
+        lines.append(f"🌍 Public: {public_ip() or 'unavailable'}")
+        return "\n".join(lines)
+
+    def _ping(self, args: list[str]) -> str:
+        if not args:
+            return "Usage: /ping host"
+        try:
+            stats = ping_stats(args[0])
+        except ValueError as exc:
+            return f"⚠️ {exc}"
+        if stats.get("avg_ms") is None:
+            return f"❌ {stats['host']}: no reply ({stats.get('error', 'unreachable')})"
+        loss = stats.get("loss_percent")
+        loss_text = f", loss {loss:.0f}%" if loss is not None else ""
+        return (
+            f"{state_icon(stats['ok'])} {stats['host']}: avg {stats['avg_ms']:.1f}ms "
+            f"(min {stats['min_ms']:.1f} / max {stats['max_ms']:.1f}){loss_text}"
+        )
+
+    def _checksite(self, args: list[str]) -> str:
+        query = " ".join(args).strip().strip("\"'")
+        if not query:
+            return "Usage: /checksite name"
+        sites = configured_sites(self.config, self.state)
+        match = next((site for site in sites if str(site.get("name", "")).lower() == query.lower()), None)
+        if match is None:
+            names = ", ".join(str(site.get("name")) for site in sites) or "none"
+            return f"⚠️ No site called {query}. Monitored sites: {names}"
+        result = probe_site(match)
+        if result is None:
+            return f"⚠️ {query} has no URL configured."
+        lines = [
+            f"{state_icon(result['up'])} {result['name']} is {'up' if result['up'] else 'DOWN'}",
+            "",
+            f"URL: {result['url']}",
+            f"Status: {result['status_code'] or 'none'} (expected {', '.join(str(code) for code in result['expected_status'])})",
+            f"Latency: {result['latency_ms']}ms",
+        ]
+        if result["error"]:
+            lines.append(f"Error: {result['error']}")
+        return "\n".join(lines)
+
+    def _version(self) -> str:
+        status = self.status_service.status()
+        return f"🐕 Sheltie {__version__}\nRunning since {str(status.get('started_at', ''))[:16].replace('T', ' ')} UTC"
 
     @staticmethod
     def _state_label(value: Any) -> str:

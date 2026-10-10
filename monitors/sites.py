@@ -58,7 +58,8 @@ def read_capped_text(response: Any, limit: int = MAX_BODY_BYTES) -> str:
     return body.decode(response.encoding or "utf-8", errors="replace")
 
 
-def check_site(site: dict[str, Any], state: Any, alerts: Any) -> dict[str, Any] | None:
+def probe_site(site: dict[str, Any]) -> dict[str, Any] | None:
+    """Request one site and report what happened. No state, history or alerts."""
     name = str(site.get("name") or site.get("url") or "unnamed")
     url = str(site.get("url") or "")
     if not url:
@@ -69,10 +70,6 @@ def check_site(site: dict[str, Any], state: Any, alerts: Any) -> dict[str, Any] 
     if isinstance(expected_status, int):
         expected_status = [expected_status]
     keyword = site.get("keyword")
-    severity = site.get("severity", "critical")
-    duration = site.get("duration", site.get("down_duration", 0))
-    cooldown = site.get("cooldown")
-    safe_name = "".join(ch if ch.isalnum() else "_" for ch in name.lower()).strip("_") or "site"
 
     started = time.perf_counter()
     status_code = None
@@ -97,7 +94,7 @@ def check_site(site: dict[str, Any], state: Any, alerts: Any) -> dict[str, Any] 
         latency_ms = round((time.perf_counter() - started) * 1000)
         error = str(exc)
 
-    result = {
+    return {
         "name": name,
         "url": url,
         "up": up,
@@ -106,6 +103,26 @@ def check_site(site: dict[str, Any], state: Any, alerts: Any) -> dict[str, Any] 
         "error": error,
         "expected_status": expected_status,
     }
+
+
+def check_site(site: dict[str, Any], state: Any, alerts: Any) -> dict[str, Any] | None:
+    result = probe_site(site)
+    if result is None:
+        return None
+
+    name = result["name"]
+    url = result["url"]
+    up = result["up"]
+    status_code = result["status_code"]
+    latency_ms = result["latency_ms"]
+    error = result["error"]
+    expected_status = result["expected_status"]
+    keyword = site.get("keyword")
+    severity = site.get("severity", "critical")
+    duration = site.get("duration", site.get("down_duration", 0))
+    cooldown = site.get("cooldown")
+    safe_name = "".join(ch if ch.isalnum() else "_" for ch in name.lower()).strip("_") or "site"
+
     history_key = f"metrics.sites.{safe_name}.history"
     history = list(state.get(history_key, []))
     history.append(

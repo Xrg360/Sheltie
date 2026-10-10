@@ -1,4 +1,6 @@
+import socket
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Any
 
@@ -10,6 +12,33 @@ from monitors.alerts import SILENCED_UNTIL_KEY, silence_active
 from monitors.autofix import USER_STOPPED_KEY
 from monitors.network import get_default_route, get_interface_status
 from monitors.temp import read_cpu_temperature
+
+
+def _container_usage(container: Any) -> dict[str, Any]:
+    try:
+        stats = container.stats(stream=False)
+    except Exception as exc:
+        return {"name": container.name, "error": str(exc)}
+
+    cpu = stats.get("cpu_stats") or {}
+    precpu = stats.get("precpu_stats") or {}
+    cpu_delta = (cpu.get("cpu_usage") or {}).get("total_usage", 0) - (precpu.get("cpu_usage") or {}).get("total_usage", 0)
+    system_delta = (cpu.get("system_cpu_usage") or 0) - (precpu.get("system_cpu_usage") or 0)
+    cpus = cpu.get("online_cpus") or len((cpu.get("cpu_usage") or {}).get("percpu_usage") or []) or 1
+    cpu_percent = cpu_delta / system_delta * cpus * 100 if cpu_delta > 0 and system_delta > 0 else 0.0
+
+    memory = stats.get("memory_stats") or {}
+    # Match `docker stats`: page cache that can be dropped is not counted as used.
+    cache = (memory.get("stats") or {}).get("inactive_file", 0)
+    used = max(0, (memory.get("usage") or 0) - cache)
+    limit = memory.get("limit") or 0
+    return {
+        "name": container.name,
+        "cpu_percent": round(cpu_percent, 1),
+        "memory_used": used,
+        "memory_limit": limit,
+        "memory_percent": round(used / limit * 100, 1) if limit else None,
+    }
 
 
 class StatusService:
@@ -121,6 +150,60 @@ class StatusService:
         except Exception as exc:
             return {"available": False, "error": str(exc), "containers": []}
         return {"available": True, "containers": containers}
+
+    def container_logs(self, name: str, lines: int) -> str:
+        client = docker.from_env()
+        output = client.containers.get(name).logs(tail=lines, timestamps=False)
+        return output.decode("utf-8", errors="replace")
+
+    def container_stats(self, name: str | None = None) -> list[dict[str, Any]]:
+        """CPU and memory per running container (one sample each, taken in parallel)."""
+        client = docker.from_env()
+        if name:
+            containers = [client.containers.get(name)]
+        else:
+            containers = client.containers.list()
+        if not containers:
+            return []
+        with ThreadPoolExecutor(max_workers=min(8, len(containers))) as pool:
+            return list(pool.map(_container_usage, containers))
+
+    def host(self) -> dict[str, Any]:
+        swap = psutil.swap_memory()
+        return {
+            "boot_time": psutil.boot_time(),
+            "uptime_seconds": time.time() - psutil.boot_time(),
+            "sheltie_uptime_seconds": time.monotonic() - self._started_monotonic,
+            "load_average": psutil.getloadavg() if hasattr(psutil, "getloadavg") else None,
+            "cpu_count": psutil.cpu_count(),
+            "swap_percent": swap.percent,
+            "swap_used": swap.used,
+            "swap_total": swap.total,
+        }
+
+    def disks(self) -> list[dict[str, Any]]:
+        paths = (self.config.get("disk", {}) or {}).get("paths") or ["/"]
+        result = []
+        for path in paths:
+            try:
+                usage = psutil.disk_usage(path)
+            except OSError as exc:
+                result.append({"path": path, "error": str(exc)})
+                continue
+            result.append({"path": path, "percent": usage.percent, "used": usage.used, "total": usage.total, "free": usage.free})
+        return result
+
+    def addresses(self) -> dict[str, list[str]]:
+        """IPv4 addresses per interface, skipping loopback and Docker's virtual interfaces."""
+        skipped = ("lo", "docker", "veth", "br-")
+        addresses: dict[str, list[str]] = {}
+        for interface, entries in psutil.net_if_addrs().items():
+            if interface.startswith(skipped):
+                continue
+            ips = [entry.address for entry in entries if entry.family == socket.AF_INET]
+            if ips:
+                addresses[interface] = ips
+        return addresses
 
     def sites(self) -> dict[str, Any]:
         sites = self.state.get("sites.status", [])

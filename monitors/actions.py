@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from typing import Any
 
 from monitors.alerts import SEVERITY_ORDER, clear_silence, parse_duration, set_silence
+from monitors.autofix import USER_STOPPED_KEY
 
 
 # Site names end up in Telegram messages, Prometheus labels and HTML, so keep them plain.
@@ -147,6 +148,31 @@ class ActionService:
             return {"ok": False, "error": str(exc)}
 
         return {"ok": True, "message": f"Container started: {name}"}
+
+    def stop_container(self, name: str) -> dict[str, Any]:
+        if not self.enabled:
+            return {"ok": False, "error": "actions are disabled"}
+        name = name.strip()
+        if not name:
+            return {"ok": False, "error": "container name is required"}
+        if name in self.blocked_containers:
+            return {"ok": False, "error": f"container stop is blocked: {name}"}
+
+        try:
+            import docker
+
+            client = docker.from_env()
+            container = client.containers.get(name)
+            container.stop(timeout=10)
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
+        # Docker also emits a "stop" event, but record it here too so auto-heal never
+        # races the event stream and starts the container straight back up.
+        stopped = set(self.state.get(USER_STOPPED_KEY, []))
+        stopped.add(name)
+        self.state.set(USER_STOPPED_KEY, sorted(stopped))
+        return {"ok": True, "message": f"Container stopped: {name}. Auto-heal will leave it stopped."}
 
     def restart_network_interface(self, interface: str) -> dict[str, Any]:
         if not self.enabled:
