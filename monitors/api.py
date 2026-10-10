@@ -14,8 +14,10 @@ class ApiServer:
     def __init__(self, config: dict[str, Any], status_service: Any, action_service: Any) -> None:
         api_config = config.get("api", {}) or {}
         self.enabled = bool(api_config.get("enabled", True))
-        self.host = str(api_config.get("host", "0.0.0.0"))
-        self.port = int(env("API_PORT") or api_config.get("port", 8710))
+        # The dashboard reaches the API through its own server-side proxy on 127.0.0.1,
+        # so the API does not need to listen on the network by default.
+        self.host = str(env("API_HOST") or api_config.get("host", "127.0.0.1"))
+        self.port = int(env("API_PORT") or api_config.get("port", 8711))
         self.status_service = status_service
         self.action_service = action_service
         self.action_token = resolve_action_token(config, status_service.state)
@@ -46,15 +48,21 @@ class ApiServer:
                     "/monitoring": lambda: dashboard_html("monitoring"),
                     "/settings": lambda: dashboard_html("settings"),
                 }
-                handler = routes.get(self.path.split("?")[0])
+                path = self.path.split("?")[0]
+                handler = routes.get(path)
                 if not handler:
                     self.send_response(404)
                     self.end_headers()
                     return
 
-                payload = handler()
+                try:
+                    payload = handler()
+                except Exception:
+                    logging.exception("API request failed: GET %s", path)
+                    self._json({"ok": False, "error": "internal error"}, status=500)
+                    return
                 if isinstance(payload, str):
-                    content_type = "text/plain; charset=utf-8" if self.path == "/metrics" else "text/html; charset=utf-8"
+                    content_type = "text/plain; charset=utf-8" if path == "/metrics" else "text/html; charset=utf-8"
                     self._write(200, payload.encode("utf-8"), content_type)
                     return
                 self._write(200, json.dumps(payload, indent=2).encode("utf-8"), "application/json")
@@ -63,37 +71,52 @@ class ApiServer:
                 # Always consume the request body before answering. Replying while unread data is
                 # still on the socket makes some platforms reset the connection, so the client sees
                 # a dropped connection instead of the response (for example a 403).
-                self._body = self._read_body()
+                try:
+                    self._body = self._read_body()
+                except ValueError:
+                    self._json({"ok": False, "error": "invalid Content-Length"}, status=400)
+                    return
                 if not self._authorized_action(action_token):
                     self._json({"ok": False, "error": "missing or invalid action token"}, status=403)
                     return
 
                 path = self.path.split("?")[0]
-                if path in ("/clearRamCache", "/api/actions/clear-ram-cache"):
-                    self._json(action_service.clear_ram_cache())
+                try:
+                    handled = self._run_action(path)
+                except Exception:
+                    logging.exception("API request failed: POST %s", path)
+                    self._json({"ok": False, "error": "internal error"}, status=500)
                     return
-                if path == "/api/actions/docker/restart":
-                    body = self._read_json()
-                    self._json(action_service.restart_container(str(body.get("container", ""))))
-                    return
-                if path == "/api/actions/sites/add":
-                    self._json(action_service.add_site(self._read_json()))
-                    return
-                if path == "/api/actions/sites/remove":
-                    body = self._read_json()
-                    self._json(action_service.remove_site(str(body.get("name", ""))))
-                    return
-                if path == "/api/actions/alerts/silence":
-                    self._json(action_service.silence_alerts(self._read_json().get("minutes")))
-                    return
-                if path == "/api/actions/alerts/resume":
-                    self._json(action_service.resume_alerts())
-                    return
-                if path == "/api/actions/events/clear":
-                    self._json(action_service.clear_events())
+                if handled:
                     return
                 self.send_response(404)
                 self.end_headers()
+
+            def _run_action(self, path: str) -> bool:
+                if path in ("/clearRamCache", "/api/actions/clear-ram-cache"):
+                    self._json(action_service.clear_ram_cache())
+                    return True
+                if path == "/api/actions/docker/restart":
+                    body = self._read_json()
+                    self._json(action_service.restart_container(str(body.get("container", ""))))
+                    return True
+                if path == "/api/actions/sites/add":
+                    self._json(action_service.add_site(self._read_json()))
+                    return True
+                if path == "/api/actions/sites/remove":
+                    body = self._read_json()
+                    self._json(action_service.remove_site(str(body.get("name", ""))))
+                    return True
+                if path == "/api/actions/alerts/silence":
+                    self._json(action_service.silence_alerts(self._read_json().get("minutes")))
+                    return True
+                if path == "/api/actions/alerts/resume":
+                    self._json(action_service.resume_alerts())
+                    return True
+                if path == "/api/actions/events/clear":
+                    self._json(action_service.clear_events())
+                    return True
+                return False
 
             def log_message(self, format: str, *args: Any) -> None:
                 logging.debug("api: " + format, *args)
@@ -113,6 +136,7 @@ class ApiServer:
                 self._write(status, json.dumps(payload, indent=2).encode("utf-8"), "application/json")
 
             def _read_body(self) -> bytes:
+                # Raises ValueError for a non-numeric Content-Length; do_POST answers 400.
                 length = int(self.headers.get("Content-Length", "0") or 0)
                 if length <= 0:
                     return b""
@@ -124,9 +148,11 @@ class ApiServer:
                 if not body or len(body) > 4096:
                     return {}
                 try:
-                    return json.loads(body.decode("utf-8"))
+                    parsed = json.loads(body.decode("utf-8"))
                 except (json.JSONDecodeError, UnicodeDecodeError):
                     return {}
+                # Every action takes an object; a list or number would break .get() below.
+                return parsed if isinstance(parsed, dict) else {}
 
             def _authorized_action(self, token: str | None) -> bool:
                 if not token:
@@ -177,6 +203,11 @@ def resolve_action_token(config: dict[str, Any], state: Any) -> str:
     return generated
 
 
+def _label(value: Any) -> str:
+    """Escape a Prometheus label value so it cannot end the label or start a new line."""
+    return str(value).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+
 def metrics_payload(status_service: Any) -> str:
     health = status_service.health()
     status = status_service.status()
@@ -206,9 +237,11 @@ def metrics_payload(status_service: Any) -> str:
         f"sheltie_sites_down {sites['down']}",
     ]
     for label, details in network.get("interfaces", {}).items():
-        lines.append(f'sheltie_network_interface_up{{interface="{details["name"]}",type="{label}"}} {1 if details["up"] else 0}')
+        lines.append(
+            f'sheltie_network_interface_up{{interface="{_label(details["name"])}",type="{_label(label)}"}} {1 if details["up"] else 0}'
+        )
     for site in sites.get("sites", []):
-        name = str(site.get("name", "unknown")).replace("\\", "\\\\").replace('"', '\\"')
+        name = _label(site.get("name", "unknown"))
         lines.append(f'sheltie_site_up{{name="{name}"}} {1 if site.get("up") else 0}')
         latency = site.get("latency_ms")
         if latency is not None:
@@ -682,7 +715,7 @@ function drawChart(samples) {{
   svg.innerHTML = `<polyline points="${{pad.left}},${{height-pad.bottom}} ${{points}} ${{width-pad.right}},${{height-pad.bottom}}" fill="rgba(22,185,112,.12)" stroke="none"></polyline><polyline points="${{points}}" fill="none" stroke="var(--brand)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline><text x="8" y="24" fill="var(--muted)" font-size="11">${{Math.round(max)}}ms</text><text x="${{pad.left}}" y="${{height-9}}" fill="var(--muted)" font-size="11">older</text><text x="${{width-pad.right-34}}" y="${{height-9}}" fill="var(--muted)" font-size="11">now</text>`;
 }}
 function renderSiteCard(site, opts = {{pin: false}}) {{
-  return `<button class="site-row" onclick="selectSite('${{esc(site.name)}}')"><div><div class="site-name">${{esc(site.name)}}</div><div class="site-url">${{esc(site.url)}}</div><div class="bars">${{bars(site, 18)}}</div></div>${{statusMini(site)}}</button>${{opts.pin ? `<label class="check-row"><input type="checkbox" ${{pinnedNames().has(site.name) ? "checked" : ""}} onchange="togglePin('${{esc(site.name)}}')"> Show on Home</label>` : ""}}`;
+  return `<button class="site-row" data-name="${{esc(site.name)}}" onclick="selectSite(this.dataset.name)"><div><div class="site-name">${{esc(site.name)}}</div><div class="site-url">${{esc(site.url)}}</div><div class="bars">${{bars(site, 18)}}</div></div>${{statusMini(site)}}</button>${{opts.pin ? `<label class="check-row"><input type="checkbox" ${{pinnedNames().has(site.name) ? "checked" : ""}} data-name="${{esc(site.name)}}" onchange="togglePin(this.dataset.name)"> Show on Home</label>` : ""}}`;
 }}
 function renderAll() {{
   const status = latest.status, health = latest.health, docker = latest.docker, sites = latest.sites;

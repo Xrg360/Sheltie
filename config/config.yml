@@ -33,7 +33,9 @@ alerting:
 
 api:
   enabled: true
-  host: 0.0.0.0
+  # The dashboard proxies to the API over 127.0.0.1. Use 0.0.0.0 only if another
+  # host must call the API directly (for example a Prometheus scraper).
+  host: 127.0.0.1
   port: 8711
 
 actions:
