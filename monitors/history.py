@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import time
 from pathlib import Path
@@ -55,6 +56,11 @@ class HistoryStore:
                 ON events (alert_id, ts DESC)
                 """
             )
+        # Event bodies can include hostnames, URLs and errors; keep them owner-only.
+        try:
+            os.chmod(self.path, 0o600)
+        except OSError:
+            pass
 
     def _quarantine_broken_db(self) -> None:
         suffix = f".broken-{int(time.time())}"

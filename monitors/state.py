@@ -1,8 +1,18 @@
 import json
 import logging
+import os
 from pathlib import Path
 from threading import Lock
 from typing import Any
+
+
+def _write_private(path: Path, payload: str) -> None:
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as file:
+        file.write(payload)
+        file.flush()
+        os.fsync(file.fileno())
+    os.chmod(path, 0o600)
 
 
 class StateStore:
@@ -27,11 +37,12 @@ class StateStore:
     def save(self) -> None:
         payload = json.dumps(self.data, indent=2, sort_keys=True)
         temp_path = self.path.with_suffix(".tmp")
-        temp_path.write_text(payload, encoding="utf-8")
+        # State holds the generated action token, so keep it readable by its owner only.
+        _write_private(temp_path, payload)
         try:
             temp_path.replace(self.path)
         except PermissionError:
-            self.path.write_text(payload, encoding="utf-8")
+            _write_private(self.path, payload)
             try:
                 temp_path.unlink(missing_ok=True)
             except OSError:

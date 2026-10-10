@@ -9,6 +9,7 @@ from typing import Any
 import requests
 
 from monitors.alerts import clear_silence, parse_duration, set_silence
+from monitors.telegram import redact
 
 
 HELP_TEXT = """Sheltie commands:
@@ -96,7 +97,7 @@ class TelegramCommandMonitor:
             try:
                 self._poll_once()
             except Exception as exc:
-                logging.error("Telegram command listener error: %s", exc)
+                logging.error("Telegram command listener error: %s", redact(exc, self.notifier.bot_token))
                 self.stop_event.wait(5)
 
     def _prepare_polling(self) -> None:
@@ -108,7 +109,11 @@ class TelegramCommandMonitor:
             logging.info("Telegram command listener connected as @%s", bot_info.get("username", "unknown"))
         except requests.RequestException as exc:
             response_text = getattr(getattr(exc, "response", None), "text", "")
-            logging.warning("Could not verify Telegram bot identity: %s %s", exc, response_text)
+            logging.warning(
+                "Could not verify Telegram bot identity: %s %s",
+                redact(exc, self.notifier.bot_token),
+                redact(response_text, self.notifier.bot_token),
+            )
 
         url = f"https://api.telegram.org/bot{self.notifier.bot_token}/deleteWebhook"
         try:
@@ -117,7 +122,11 @@ class TelegramCommandMonitor:
             logging.info("Telegram webhook cleared for command polling")
         except requests.RequestException as exc:
             response_text = getattr(getattr(exc, "response", None), "text", "")
-            logging.warning("Could not clear Telegram webhook before polling: %s %s", exc, response_text)
+            logging.warning(
+                "Could not clear Telegram webhook before polling: %s %s",
+                redact(exc, self.notifier.bot_token),
+                redact(response_text, self.notifier.bot_token),
+            )
 
     def _reset_offset_if_bot_changed(self) -> None:
         fingerprint = hashlib.sha256(str(self.notifier.bot_token).encode("utf-8")).hexdigest()
@@ -144,7 +153,11 @@ class TelegramCommandMonitor:
             response.raise_for_status()
         except requests.RequestException as exc:
             response_text = getattr(exc.response, "text", "")
-            logging.error("Telegram getUpdates failed: %s %s", exc, response_text)
+            logging.error(
+                "Telegram getUpdates failed: %s %s",
+                redact(exc, self.notifier.bot_token),
+                redact(response_text, self.notifier.bot_token),
+            )
             raise
 
         payload = response.json()

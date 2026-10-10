@@ -166,10 +166,13 @@ def resolve_action_token(config: dict[str, Any], state: Any) -> str:
 
     generated = secrets.token_urlsafe(32)
     state.set(GENERATED_TOKEN_KEY, generated)
+    # Never log the token itself: container logs are kept, shared and pasted into issues.
     logging.warning(
-        "No action token configured. Generated one for action endpoints: %s "
-        "(set SHELTIE_ACTION_TOKEN to choose your own)",
-        generated,
+        "No action token configured. Generated one and stored it in state under %s. "
+        "Read it with: docker exec sheltie python -c \"import json; print(json.load(open('state/state.json'))['%s'])\" "
+        "(or set SHELTIE_ACTION_TOKEN to choose your own)",
+        GENERATED_TOKEN_KEY,
+        GENERATED_TOKEN_KEY,
     )
     return generated
 
