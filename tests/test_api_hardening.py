@@ -87,7 +87,8 @@ class ApiHardeningTests(unittest.TestCase):
         self.assertEqual(json.loads(body)["error"], "site name is required")
 
     def test_action_exception_returns_json_500(self):
-        status, _type, body = self.post("/api/actions/docker/restart", b'{"container": "x"}')
+        with self.assertLogs(level="ERROR"):
+            status, _type, body = self.post("/api/actions/docker/restart", b'{"container": "x"}')
         self.assertEqual(status, 500)
         self.assertEqual(json.loads(body)["error"], "internal error")
 

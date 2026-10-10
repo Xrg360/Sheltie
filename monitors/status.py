@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -18,6 +19,29 @@ class StatusService:
         self.history = history
         self.notifier = notifier
         self.started_at = datetime.now(timezone.utc).isoformat()
+        self._started_monotonic = time.monotonic()
+        self._last_cycle_monotonic: float | None = None
+        self.last_cycle_at: str | None = None
+
+    def mark_cycle(self) -> None:
+        """Called by the main loop after every round of checks."""
+        self._last_cycle_monotonic = time.monotonic()
+        self.last_cycle_at = datetime.now(timezone.utc).isoformat()
+
+    def liveness(self) -> dict[str, Any]:
+        """Healthy while the check loop keeps completing. Used by the Docker healthcheck."""
+        interval = int(self.config.get("interval", 30) or 30)
+        limit = max(90, interval * 3)
+        since = self._last_cycle_monotonic if self._last_cycle_monotonic is not None else self._started_monotonic
+        age = time.monotonic() - since
+        return {
+            "ok": age <= limit,
+            "version": __version__,
+            "started_at": self.started_at,
+            "last_cycle_at": self.last_cycle_at,
+            "seconds_since_last_cycle": round(age, 1),
+            "limit_seconds": limit,
+        }
 
     def status(self) -> dict[str, Any]:
         route = self.state.get("changes.network.route.value")

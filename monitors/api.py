@@ -35,7 +35,6 @@ class ApiServer:
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
                 routes = {
-                    "/health": status_service.status,
                     "/status": status_service.status,
                     "/api/status": status_service.status,
                     "/api/health": status_service.health,
@@ -49,6 +48,14 @@ class ApiServer:
                     "/settings": lambda: dashboard_html("settings"),
                 }
                 path = self.path.split("?")[0]
+                if path == "/health":
+                    try:
+                        liveness = status_service.liveness()
+                    except Exception:
+                        logging.exception("Liveness check failed")
+                        liveness = {"ok": False}
+                    self._json(liveness, status=200 if liveness.get("ok") else 503)
+                    return
                 handler = routes.get(path)
                 if not handler:
                     self.send_response(404)
