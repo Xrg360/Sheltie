@@ -97,12 +97,35 @@ export type SitesPayload = {
   sites: Site[];
 };
 
+export type AcRecoveryMode = "on" | "off" | "last";
+
+/** BIOS "AC power recovery": whether the machine powers on by itself when mains power returns. */
+export type AcRecovery = {
+  supported: boolean;
+  mode: AcRecoveryMode | null;
+  modes: AcRecoveryMode[];
+  method?: string | null;
+  reason?: string | null;
+  checked_at?: string;
+};
+
+export type PowerPayload = {
+  vendor?: string | null;
+  model?: string | null;
+  ac_online: boolean | null;
+  battery_percent: number | null;
+  battery_status: string | null;
+  ac_recovery: AcRecovery;
+};
+
 export type Snapshot = {
   status: StatusPayload | null;
   health: HealthPayload | null;
   network: NetworkPayload | null;
   docker: DockerPayload | null;
   sites: SitesPayload | null;
+  /** Missing in snapshots cached by older versions. */
+  power?: PowerPayload | null;
   events: EventItem[] | null;
   fetchedAt: number;
 };

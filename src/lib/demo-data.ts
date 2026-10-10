@@ -3,7 +3,7 @@
 // an auto-healed container this morning, and the blog is down right now.
 
 import { safeName } from "./format";
-import type { ActionResult, Container, EventItem, Site, SiteSample, Snapshot } from "./types";
+import type { AcRecoveryMode, ActionResult, Container, EventItem, Site, SiteSample, Snapshot } from "./types";
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -64,6 +64,7 @@ type DemoState = {
   activeAlerts: string[];
   silencedUntil: number | null;
   silenced: boolean;
+  acRecovery: AcRecoveryMode;
 };
 
 const state: DemoState = {
@@ -208,6 +209,8 @@ const state: DemoState = {
   activeAlerts: ["site.blog.down"],
   silencedUntil: null,
   silenced: false,
+  // The demo server came back by itself after last night's power cut, so power-on with AC is on.
+  acRecovery: "on",
 };
 
 function wave(period: number, phase = 0): number {
@@ -268,6 +271,14 @@ export function demoSnapshot(): Snapshot {
     docker: { available: true, containers: state.containers.map((entry) => ({ ...entry })) },
     sites: { total: state.sites.length, up, down: state.sites.length - up, sites: state.sites.map((entry) => ({ ...entry })) },
     events: [...state.events],
+    power: {
+      vendor: "Dell Inc.",
+      model: "OptiPlex 3070 Micro",
+      ac_online: true,
+      battery_percent: null,
+      battery_status: null,
+      ac_recovery: { supported: true, mode: state.acRecovery, modes: ["off", "last", "on"], method: "dell-smbios", reason: null },
+    },
   };
 }
 
@@ -326,6 +337,13 @@ export function demoAction(path: string, body: Record<string, unknown>): ActionR
     case "actions/events/clear":
       state.events = [];
       return { ok: true, message: "Recent events cleared" };
+    case "actions/power/ac-recovery": {
+      const mode = String(body.mode || "") as AcRecoveryMode;
+      if (!["on", "off", "last"].includes(mode)) return { ok: false, error: "mode must be one of: on, off, last" };
+      state.acRecovery = mode;
+      pushEvent({ alert_id: "power.ac_recovery", source: "power", severity: "info", status: "event", title: `Power on with AC turned ${mode}`, body: `BIOS AC power recovery is now ${mode}.` });
+      return { ok: true, message: `Power on with AC set to ${mode}` };
+    }
     case "actions/clear-ram-cache":
       return { ok: true, message: "Linux page cache, dentries, and inodes were dropped" };
     default:

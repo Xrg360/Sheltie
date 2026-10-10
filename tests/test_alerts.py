@@ -246,7 +246,7 @@ class FakeTelegramNotifier:
     def __init__(self) -> None:
         self.sent = []
 
-    def send(self, text, force=False):
+    def send(self, text, force=False, html=False, buttons=None):
         self.sent.append(text)
 
 

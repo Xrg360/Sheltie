@@ -6,7 +6,7 @@ import docker
 
 from monitors.alerts import SILENCED_KEY
 from monitors.autofix import USER_STOPPED_KEY
-from monitors.commands import MAX_LOG_LINES, MAX_MESSAGE_CHARS, TelegramCommandMonitor, clamp_count, human_duration, tail_text
+from monitors.commands import COMMANDS, HELP_TEXT, MAX_LOG_LINES, MAX_MESSAGE_CHARS, TelegramCommandMonitor, clamp_count, confirm_data, human_duration, tail_text
 from monitors.internet import ping_stats
 
 
@@ -32,9 +32,19 @@ class FakeNotifier:
 
     def __init__(self) -> None:
         self.sent = []
+        self.buttons = []
+        self.edits = []
+        self.answers = []
 
-    def send(self, text, force=False):
+    def send(self, text, force=False, html=False, buttons=None):
         self.sent.append(text)
+        self.buttons.append(buttons or [])
+
+    def edit(self, message_id, text, html=True, buttons=None):
+        self.edits.append((message_id, text, buttons or []))
+
+    def answer_callback(self, callback_id, text=None):
+        self.answers.append((callback_id, text))
 
 
 class FakeHistory:
@@ -89,6 +99,28 @@ class FakeStatus:
     def addresses(self):
         return {"enp2s0": ["192.168.1.80"], "tailscale0": ["100.64.0.1"]}
 
+    def docker(self):
+        return {
+            "available": True,
+            "containers": [
+                {"name": "web", "status": "running"},
+                {"name": "<blog>", "status": "exited"},
+                {"name": "sheltie", "status": "running", "blocked": True},
+            ],
+        }
+
+    def power(self):
+        return {
+            "vendor": "Dell Inc.",
+            "model": "Inspiron 15-3567",
+            "ac_online": True,
+            "battery_percent": 37,
+            "battery_status": "Charging",
+            "ac_recovery": dict(self.recovery),
+        }
+
+    recovery = {"supported": True, "mode": "off", "modes": ["off", "on"], "reason": None}
+
 
 class FakeActions:
     def __init__(self) -> None:
@@ -115,6 +147,11 @@ class FakeActions:
     def resume_alerts(self):
         return self._ok("resume")
 
+    def set_ac_recovery(self, mode):
+        self.calls.append(("ac_recovery", mode))
+        recovery = {"supported": True, "mode": mode, "modes": ["off", "on"], "reason": None}
+        return {"ok": True, "message": f"Power on with AC set to {mode}", "ac_recovery": recovery}
+
 
 class CommandTests(unittest.TestCase):
     def setUp(self):
@@ -134,9 +171,10 @@ class CommandTests(unittest.TestCase):
         for command in ("/alerts", "/events", "/logs", "/stats", "/stop", "/uptime", "/disk", "/ip", "/ping", "/checksite", "/version"):
             self.assertIn(command, reply)
 
-    def test_bare_start_is_help_not_an_action(self):
-        self.assertIn("Sheltie commands", self.send("/start"))
+    def test_bare_start_is_a_welcome_not_an_action(self):
+        self.assertIn("Sheltie", self.send("/start"))
         self.assertEqual(self.actions.calls, [])
+        self.assertTrue(self.notifier.buttons[-1], "welcome offers the menu buttons")
 
     def test_start_container_clears_user_stopped_mark(self):
         self.state.set(USER_STOPPED_KEY, ["web", "db"])
@@ -228,6 +266,120 @@ class CommandTests(unittest.TestCase):
             reply = self.send("/uptime")
         self.assertIn("/uptime failed", reply)
         self.assertNotIn(TOKEN, reply)
+
+
+    def press(self, data, chat_id=42, message_id=7):
+        self.monitor._handle_update(
+            {"callback_query": {"id": "cb1", "data": data, "message": {"message_id": message_id, "chat": {"id": chat_id}}}}
+        )
+
+    def all_button_data(self):
+        return [data for row in self.notifier.buttons[-1] for _label, data in row]
+
+    def test_help_and_menu_cover_power_commands(self):
+        reply = self.send("/help")
+        for command in ("/power", "/autoon", "/menu", "/heal"):
+            self.assertIn(command, reply)
+        self.assertEqual(HELP_TEXT, reply)
+        self.assertEqual(len({command for command, *_ in COMMANDS}), len(COMMANDS))
+        self.send("/menu")
+        self.assertIn("c:/power", self.all_button_data())
+
+    def test_power_shows_off_with_turn_on_button(self):
+        reply = self.send("/power")
+        self.assertIn("Power on with AC: off", reply)
+        self.assertIn("battery 37%", reply)
+        self.assertIn("c:/autoon on", self.all_button_data())
+        self.assertEqual(self.actions.calls, [])
+
+    def test_battery_alias_and_bare_autoon_only_show(self):
+        self.assertIn("Power on with AC", self.send("/battery"))
+        self.assertIn("Power on with AC", self.send("/autoon"))
+        self.assertEqual(self.actions.calls, [])
+
+    def test_autoon_on_changes_the_setting(self):
+        reply = self.send("/autoon on")
+        self.assertEqual(self.actions.calls, [("ac_recovery", "on")])
+        self.assertIn("Power on with AC: on", reply)
+
+    def test_autoon_rejects_unknown_mode(self):
+        self.assertIn("Usage", self.send("/autoon sometimes"))
+        self.assertEqual(self.actions.calls, [])
+
+    def test_stale_autoon_is_ignored(self):
+        self.assertIn("Ignored /autoon", self.send("/autoon on", age=3600))
+        self.assertEqual(self.actions.calls, [])
+
+    def test_unsupported_power_explains_why(self):
+        with patch.object(FakeStatus, "recovery", {"supported": False, "mode": None, "modes": [], "reason": "Only Dell BIOS settings are supported so far"}):
+            reply = self.send("/power")
+        self.assertIn("not available", reply)
+        self.assertIn("Only Dell", reply)
+        self.assertNotIn("c:/autoon on", self.all_button_data())
+
+    def test_status_survives_missing_sections(self):
+        reply = self.send("/status")
+        self.assertIn("problem", reply)
+        self.assertIn("Power on with AC: off", reply)
+
+    def test_navigation_button_runs_read_only_command(self):
+        self.press("c:/uptime")
+        self.assertEqual(self.notifier.answers, [("cb1", None)])
+        self.assertIn("Host: 1d 1h", self.notifier.sent[-1])
+
+    def test_disruptive_button_asks_before_acting(self):
+        self.press("c:/autoon on")
+        self.assertEqual(self.actions.calls, [])
+        self.assertIn("Turn on power on with AC?", self.notifier.sent[-1])
+        yes = self.all_button_data()[0]
+        self.assertTrue(yes.startswith("y:"))
+        self.assertIn("n", self.all_button_data())
+
+        self.press(yes)
+        self.assertEqual(self.actions.calls, [("ac_recovery", "on")])
+        message_id, text, _buttons = self.notifier.edits[-1]
+        self.assertEqual(message_id, 7)
+        self.assertIn("Power on with AC set to on", text)
+
+    def test_restart_button_confirms_and_typed_restart_does_not(self):
+        self.press("c:/restart web")
+        self.assertEqual(self.actions.calls, [])
+        self.send("/restart web")
+        self.assertEqual(self.actions.calls, [("restart", "web")])
+
+    def test_expired_confirmation_does_nothing(self):
+        self.press(confirm_data("/stop web", now=time.time() - 3600))
+        self.assertEqual(self.actions.calls, [])
+        self.assertIn("expired", self.notifier.edits[-1][1])
+
+    def test_cancel_button_edits_the_prompt(self):
+        self.press("n")
+        self.assertIn("Cancelled", self.notifier.edits[-1][1])
+        self.assertEqual(self.actions.calls, [])
+
+    def test_buttons_from_other_chats_are_ignored(self):
+        with self.assertLogs(level="INFO"):
+            self.press(confirm_data("/stop web"), chat_id=99)
+        self.assertEqual(self.actions.calls, [])
+        self.assertEqual(self.notifier.sent, [])
+
+    def test_bare_restart_offers_a_picker_without_blocked_containers(self):
+        reply = self.send("/restart")
+        data = self.all_button_data()
+        self.assertIn("Restart which container", reply)
+        self.assertEqual(data, ["c:/restart web"])
+        self.assertEqual(self.actions.calls, [])
+
+    def test_docker_escapes_names_and_offers_start(self):
+        reply = self.send("/docker")
+        self.assertIn("&lt;blog&gt;", reply)
+        self.assertNotIn("<blog>", reply)
+        self.assertIn("c:/start <blog>", self.all_button_data())
+
+    def test_logs_are_wrapped_and_escaped(self):
+        reply = self.send("/logs web")
+        self.assertIn("<pre>", reply)
+        self.assertLessEqual(len(reply), 4096)
 
 
 class HelperTests(unittest.TestCase):

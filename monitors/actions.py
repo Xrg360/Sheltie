@@ -6,8 +6,9 @@ import time
 from urllib.parse import urlparse
 from typing import Any
 
-from monitors.alerts import SEVERITY_ORDER, clear_silence, parse_duration, set_silence
+from monitors.alerts import SEVERITY_ORDER, Alert, clear_silence, parse_duration, set_silence, utc_now
 from monitors.autofix import USER_STOPPED_KEY
+from monitors.power import PowerService
 
 
 # Site names end up in Telegram messages, Prometheus labels and HTML, so keep them plain.
@@ -78,10 +79,11 @@ def normalize_site(site: dict[str, Any]) -> dict[str, Any]:
 
 
 class ActionService:
-    def __init__(self, config: dict[str, Any], state: Any, history: Any) -> None:
+    def __init__(self, config: dict[str, Any], state: Any, history: Any, power: Any = None) -> None:
         self.config = config
         self.state = state
         self.history = history
+        self.power = power or PowerService()
         action_config = config.get("actions", {}) or {}
         self.enabled = bool(action_config.get("enabled", True))
         self.blocked_containers = set(action_config.get("blocked_containers") or ["sheltie", "meerkat"])
@@ -254,3 +256,22 @@ class ActionService:
             return {"ok": False, "error": "actions are disabled"}
         self.history.clear()
         return {"ok": True, "message": "Recent events cleared"}
+
+    def set_ac_recovery(self, mode: Any) -> dict[str, Any]:
+        """Change the BIOS setting that powers the machine on when AC power returns."""
+        if not self.enabled:
+            return {"ok": False, "error": "actions are disabled"}
+        result = self.power.set_ac_recovery(str(mode or ""))
+        if result["ok"] and "already" not in result["message"]:
+            self.history.record(
+                Alert(
+                    id="power.ac_recovery",
+                    source="power",
+                    severity="info",
+                    status="event",
+                    title=f"Power on with AC turned {str(mode).lower()}",
+                    body=f"BIOS AC power recovery is now {str(mode).lower()}.",
+                    timestamp=utc_now(),
+                )
+            )
+        return result
