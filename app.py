@@ -20,6 +20,7 @@ from monitors.docker import DockerEventMonitor
 from monitors.history import HistoryStore
 from monitors.internet import check_internet
 from monitors.network import check_network
+from monitors.power import PowerService
 from monitors.ram import check_ram
 from monitors.sites import check_sites
 from monitors.state import StateStore
@@ -83,8 +84,9 @@ def main() -> int:
     history = HistoryStore(str(HISTORY_PATH))
     notifier = TelegramNotifier(config, state)
     alerts = AlertManager(config, state, notifier, history)
-    action_service = ActionService(config, state, history)
-    status_service = StatusService(config, state, history, notifier)
+    power = PowerService()
+    action_service = ActionService(config, state, history, power)
+    status_service = StatusService(config, state, history, notifier, power)
     stopped = Event()
 
     auto_heal_monitor = AutoHealMonitor(config, state, alerts, action_service)

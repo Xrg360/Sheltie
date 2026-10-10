@@ -64,7 +64,8 @@ Open `http://<server-ip>:8710`. To read the generated action token, run `docker 
 | **Network failover awareness** | Ethernet and Wi-Fi state, default-route changes and internet reachability, shown as a connection path. |
 | **Website and service checks** | HTTP status, latency, redirects and keyword checks, with uptime bars, average and p95 response time. |
 | **Host health** | CPU, RAM, disk and CPU temperature with thresholds, durations and cooldowns. |
-| **Two-way Telegram** | State-change-only alerts plus 24 commands: `/alerts`, `/logs`, `/stats`, `/start`/`/stop`/`/restart`, `/checksite`, `/ping`, `/silence 2h` and more ([full list](#telegram-commands)). Stale commands queued during an outage are ignored safely. |
+| **Two-way Telegram** | Formatted alerts with one-tap buttons (start the crashed container, silence for an hour) and 28 commands: `/menu`, `/alerts`, `/logs`, `/stats`, `/start`/`/stop`/`/restart`, `/power`, `/autoon`, `/checksite`, `/silence 2h` and more ([full list](#telegram-commands)). Disruptive buttons ask first, and stale commands queued during an outage are ignored safely. |
+| **Power on after a power cut** | Shows whether the BIOS powers the machine back on when AC returns (Dell "AC power recovery" / "Wake on AC"), plus AC adapter and battery state. Turn it on from the Host page or with `/autoon on`. |
 | **Silence with expiry** | Silence alerts for 1 hour, 4 hours or until resumed, from the dashboard or Telegram. |
 | **Fast for experts** | `⌘K` command palette, `g`-shortcuts, REST API and Prometheus `/metrics`. |
 | **Private and accessible** | No telemetry or external requests from the dashboard. WCAG 2.2 AA checked in CI on every page. |
@@ -258,7 +259,8 @@ Sheltie answers these commands, but only from your configured `TELEGRAM_CHAT_ID`
 
 | Command | What it does | Example |
 |---|---|---|
-| `/status` | Current monitor state: alerts, internet, Ethernet, Wi-Fi and default route | `/status` |
+| `/status` | Everything at a glance: problems first, then network, host, containers, sites and power | `/status` |
+| `/menu` | A control panel of buttons for the common commands | `/menu` |
 | `/alerts` | Active alerts and how long each has been firing | `/alerts` |
 | `/events [n]` | Last `n` events from history (default 10, max 30) | `/events 20` |
 | `/health` | CPU, RAM, disk and CPU temperature | `/health` |
@@ -269,16 +271,28 @@ Sheltie answers these commands, but only from your configured `TELEGRAM_CHAT_ID`
 | `/ping <host>` | Three pings with packet loss and min/avg/max round-trip time | `/ping 1.1.1.1` |
 | `/version` | Sheltie version and when it started | `/version` |
 
+### Power
+
+| Command | What it does | Example |
+|---|---|---|
+| `/power` (or `/battery`) | AC adapter, battery level and whether the machine powers on by itself when AC returns | `/power` |
+| `/autoon [on\|off]` | On its own, shows the setting. With `on` or `off`, changes the BIOS setting and reads it back | `/autoon on` |
+
+`/autoon` needs a Dell BIOS that offers AC power recovery, the `dell_smbios` and `dell_wmi` kernel modules, and the privileged container from `compose.yml`. On other machines `/power` says why it is not available.
+
 ### Containers
 
 | Command | What it does | Example |
 |---|---|---|
-| `/docker` | All containers and their state | `/docker` |
+| `/docker` (or `/containers`) | All containers, stopped ones first with Start and Logs buttons | `/docker` |
 | `/stats [container]` | CPU and memory: the top 5 containers, or one container | `/stats npm` |
 | `/logs <container> [lines]` | The last log lines (default 30, max 100). Telegram tokens are redacted | `/logs cloudflared 50` |
 | `/restart <container>` | Restart a container | `/restart npm` |
-| `/start <container>` | Start a stopped container. On its own, `/start` shows the help | `/start hermes` |
+| `/start <container>` | Start a stopped container. On its own, `/start` shows a welcome and the menu | `/start hermes` |
 | `/stop <container>` | Stop a container. Auto-heal leaves it stopped until you start it | `/stop hermes` |
+| `/heal` | Which containers and interfaces auto-heal watches, and which are stopped on purpose | `/heal` |
+
+Send `/restart`, `/stop` or `/logs` without a name to pick the container from buttons.
 
 ### Websites
 
@@ -300,38 +314,15 @@ Sheltie answers these commands, but only from your configured `TELEGRAM_CHAT_ID`
 
 Containers in `actions.blocked_containers` (Sheltie itself by default) can't be restarted, started or stopped from Telegram. When `actions.enabled` is `false`, every command that changes something is refused, including `/silence` and `/resume`.
 
-Commands that change something (`/restart`, `/start <container>`, `/stop`, `/clearcache`, `/addsite`, `/removesite`, `/silence`, `/resume`) are ignored if they are older than `telegram.command_max_age` (5 minutes by default). This stops a command sent during an outage from running hours later. Sheltie replies to say the command was ignored.
+Commands that change something (`/restart`, `/start <container>`, `/stop`, `/clearcache`, `/addsite`, `/removesite`, `/silence`, `/resume`, `/autoon on|off`) are ignored if they are older than `telegram.command_max_age` (5 minutes by default). This stops a command sent during an outage from running hours later. Sheltie replies to say the command was ignored.
 
-### BotFather menu
+### Buttons
 
-To get the command menu in Telegram, send `/setcommands` to BotFather, select your Sheltie bot, then paste:
+Replies and alerts come with inline buttons for the next step. Buttons that only show something run straight away. Buttons that restart, stop, clear the cache, remove a monitor or change power on with AC first ask "are you sure?" with a confirm and a cancel button, and that confirmation expires after `telegram.command_max_age`. A typed command is already deliberate, so it runs without asking.
 
-```text
-status - Current monitor state
-alerts - Active alerts and how long they have been firing
-events - Last events. Usage: /events 20
-health - CPU RAM disk and temperature
-uptime - Host and Sheltie uptime, load and swap
-disk - Disk usage for monitored paths
-network - Interfaces and internet state
-ip - LAN, Tailscale and public IP addresses
-ping - Ping a host. Usage: /ping 1.1.1.1
-docker - All Docker containers
-stats - Container CPU and memory. Usage: /stats or /stats name
-logs - Container logs. Usage: /logs name 50
-restart - Restart a container. Usage: /restart name
-start - Start a container. Usage: /start name
-stop - Stop a container. Usage: /stop name
-sites - Website monitors
-checksite - Check a website now. Usage: /checksite name
-addsite - Add a website monitor. Usage: /addsite name https://example.com
-removesite - Remove a runtime website monitor. Usage: /removesite name
-silence - Pause alerts. Usage: /silence or /silence 2h
-resume - Resume alerts
-clearcache - Clear Linux RAM caches
-version - Sheltie version
-help - Show all commands
-```
+### Command menu
+
+Sheltie publishes its command menu to Telegram (`setMyCommands`) every time it starts, so typing `/` in the chat lists every command with a short description. You no longer need to set it up in BotFather.
 
 ## Telegram Troubleshooting
 
@@ -498,6 +489,7 @@ GET  /api/network
 GET  /api/docker
 GET  /api/sites
 GET  /api/events
+GET  /api/power     AC adapter, battery and BIOS power-on-with-AC state (cached for 5 minutes)
 GET  /metrics
 POST /clearRamCache
 POST /api/actions/clear-ram-cache
@@ -507,10 +499,11 @@ POST /api/actions/sites/remove
 POST /api/actions/events/clear
 POST /api/actions/alerts/silence    {"minutes": 60}  (omit minutes to silence until resumed)
 POST /api/actions/alerts/resume
+POST /api/actions/power/ac-recovery  {"mode": "on"}  (on, off or last, if the BIOS offers it)
 
 Next.js proxy (same paths under /api/sheltie/):
 
-GET  /api/sheltie/status | health | network | docker | sites | events
+GET  /api/sheltie/status | health | network | docker | sites | events | power
 POST /api/sheltie/actions/...
 ```
 

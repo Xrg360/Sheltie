@@ -74,3 +74,23 @@ test("silencing alerts shows in the top bar", async ({ page }) => {
   await page.getByRole("menuitem", { name: "Silence for 1 hour" }).click();
   await expect(page.getByRole("button", { name: /Silenced/ })).toBeVisible();
 });
+
+test("power on with AC shows its state and changes only after confirmation", async ({ page }) => {
+  await page.goto("host/");
+  const power = page.locator("section", { has: page.getByRole("heading", { name: "Power" }) });
+  await expect(power.getByText("After a power cut, this machine starts by itself when power returns.")).toBeVisible();
+
+  await power.getByRole("button", { name: "Turn off" }).click();
+  const off = page.getByRole("dialog", { name: "Turn off power on with AC?" });
+  await expect(off).toBeVisible();
+  await off.getByRole("button", { name: "Turn off" }).click();
+  await expect(power.getByText("After a power cut, this machine stays off until someone presses the power button.")).toBeVisible();
+
+  await power.getByRole("button", { name: "Turn on" }).click();
+  const on = page.getByRole("dialog", { name: "Turn on power on with AC?" });
+  await on.getByRole("button", { name: "Cancel" }).click();
+  await expect(power.getByRole("button", { name: "Turn on" })).toBeVisible();
+  await power.getByRole("button", { name: "Turn on" }).click();
+  await page.getByRole("dialog", { name: "Turn on power on with AC?" }).getByRole("button", { name: "Turn on" }).click();
+  await expect(power.getByText("After a power cut, this machine starts by itself when power returns.")).toBeVisible();
+});

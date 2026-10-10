@@ -1,5 +1,5 @@
 import { demoAction, demoSnapshot } from "./demo-data";
-import type { ActionResult, DockerPayload, EventItem, HealthPayload, NetworkPayload, SitesPayload, Snapshot, StatusPayload } from "./types";
+import type { ActionResult, DockerPayload, EventItem, HealthPayload, NetworkPayload, PowerPayload, SitesPayload, Snapshot, StatusPayload } from "./types";
 
 export const IS_DEMO = process.env.NEXT_PUBLIC_SHELTIE_DEMO === "1";
 
@@ -41,16 +41,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export async function fetchSnapshot(): Promise<Snapshot> {
   if (IS_DEMO) return demoSnapshot();
 
-  const [status, health, network, docker, sites, events] = await Promise.allSettled([
+  const [status, health, network, docker, sites, events, power] = await Promise.allSettled([
     request<StatusPayload>("status"),
     request<HealthPayload>("health"),
     request<NetworkPayload>("network"),
     request<DockerPayload>("docker"),
     request<SitesPayload>("sites"),
     request<{ events: EventItem[] }>("events"),
+    request<PowerPayload>("power"),
   ]);
 
-  const all = [status, health, network, docker, sites, events];
+  const all = [status, health, network, docker, sites, events, power];
   if (all.every((result) => result.status === "rejected")) {
     const reason = (status as PromiseRejectedResult).reason;
     throw reason instanceof Error ? reason : new ApiError("Sheltie API unavailable", 0);
@@ -64,6 +65,7 @@ export async function fetchSnapshot(): Promise<Snapshot> {
     docker: value(docker),
     sites: value(sites),
     events: value(events)?.events ?? null,
+    power: value(power),
     fetchedAt: Date.now(),
   };
 }

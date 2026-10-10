@@ -11,6 +11,7 @@ from monitors import __version__
 from monitors.alerts import SILENCED_UNTIL_KEY, silence_active
 from monitors.autofix import USER_STOPPED_KEY
 from monitors.network import get_default_route, get_interface_status
+from monitors.power import PowerService
 from monitors.temp import read_cpu_temperature
 
 
@@ -42,11 +43,12 @@ def _container_usage(container: Any) -> dict[str, Any]:
 
 
 class StatusService:
-    def __init__(self, config: dict[str, Any], state: Any, history: Any, notifier: Any = None) -> None:
+    def __init__(self, config: dict[str, Any], state: Any, history: Any, notifier: Any = None, power: Any = None) -> None:
         self.config = config
         self.state = state
         self.history = history
         self.notifier = notifier
+        self.power_service = power or PowerService()
         self.started_at = datetime.now(timezone.utc).isoformat()
         self._started_monotonic = time.monotonic()
         self._last_cycle_monotonic: float | None = None
@@ -180,6 +182,9 @@ class StatusService:
             "swap_used": swap.used,
             "swap_total": swap.total,
         }
+
+    def power(self) -> dict[str, Any]:
+        return self.power_service.status()
 
     def disks(self) -> list[dict[str, Any]]:
         paths = (self.config.get("disk", {}) or {}).get("paths") or ["/"]

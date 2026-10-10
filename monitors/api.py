@@ -41,6 +41,7 @@ class ApiServer:
                     "/api/network": status_service.network,
                     "/api/docker": status_service.docker,
                     "/api/sites": status_service.sites,
+                    "/api/power": lambda: status_service.power(),
                     "/api/events": lambda: {"events": status_service.history.recent(100)},
                     "/metrics": lambda: metrics_payload(status_service),
                     "/": lambda: dashboard_html("home"),
@@ -119,6 +120,9 @@ class ApiServer:
                     return True
                 if path == "/api/actions/alerts/resume":
                     self._json(action_service.resume_alerts())
+                    return True
+                if path == "/api/actions/power/ac-recovery":
+                    self._json(action_service.set_ac_recovery(self._read_json().get("mode")))
                     return True
                 if path == "/api/actions/events/clear":
                     self._json(action_service.clear_events())
