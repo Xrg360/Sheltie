@@ -12,9 +12,11 @@ RUN npm run build
 
 FROM python:3.12-slim
 
+# MALLOC_ARENA_MAX: glibc gives every thread its own malloc arena by default, which
+# leaves a threaded Python process holding far more memory than it uses.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    NODE_ENV=production \
+    MALLOC_ARENA_MAX=2 \
     PORT=8710 \
     SHELTIE_API_PORT=8711 \
     SHELTIE_API_BASE=http://127.0.0.1:8711
@@ -25,17 +27,14 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl iproute2 iputils-ping tini \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=web-build /usr/local/bin/node /usr/local/bin/node
-
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py .
 COPY monitors ./monitors
 COPY config ./config
-COPY package.json package-lock.json* ./
-COPY --from=web-build /app/.next ./.next
-COPY --from=web-build /app/node_modules ./node_modules
+# The dashboard is static files (next build exports to ./out); app.py serves them.
+COPY --from=web-build /app/out ./web
 COPY scripts/entrypoint.sh ./entrypoint.sh
 
 RUN mkdir -p /app/state

@@ -1,21 +1,6 @@
 #!/bin/bash
-# Runs the Python monitor and the Next.js dashboard side by side under tini.
-# SIGTERM from `docker stop` reaches both, and if either process exits the other is
-# stopped too, so the container exits and Docker's restart policy brings it back.
+# One process: the Python monitor also serves the dashboard (the static export in ./web)
+# on PORT, so there is no Node server at runtime. exec hands tini's SIGTERM straight to it.
 set -u
 
-python app.py &
-monitor=$!
-node node_modules/next/dist/bin/next start -p "${PORT:-8710}" &
-web=$!
-
-stop() {
-  kill -TERM "$monitor" "$web" 2>/dev/null || true
-}
-trap stop TERM INT
-
-wait -n "$monitor" "$web"
-status=$?
-stop
-wait "$monitor" "$web" 2>/dev/null
-exit "$status"
+exec python app.py

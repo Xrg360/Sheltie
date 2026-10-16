@@ -9,7 +9,8 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    mem_limit: 512m
+    # One Python process (the dashboard is static files it serves) uses ~60 MB.
+    mem_limit: 192m
     pids_limit: 256
     privileged: true
     network_mode: host

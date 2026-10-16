@@ -27,6 +27,7 @@ from monitors.state import StateStore
 from monitors.status import StatusService
 from monitors.telegram import TelegramNotifier
 from monitors.temp import check_temperature
+from monitors.web import WebServer
 
 
 CONFIG_PATH = Path("config/config.yml")
@@ -97,6 +98,8 @@ def main() -> int:
     command_monitor.start()
     api_server = ApiServer(config, status_service, action_service)
     api_server.start()
+    web_server = WebServer(config)
+    web_server.start()
 
     def handle_signal(signum: int, _frame: Any) -> None:
         logging.info("Received signal %s, shutting down", signum)
@@ -105,6 +108,7 @@ def main() -> int:
         docker_monitor.stop()
         command_monitor.stop()
         api_server.stop()
+        web_server.stop()
 
     signal.signal(signal.SIGTERM, handle_signal)
     signal.signal(signal.SIGINT, handle_signal)
