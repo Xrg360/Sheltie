@@ -501,7 +501,7 @@ POST /api/actions/alerts/silence    {"minutes": 60}  (omit minutes to silence un
 POST /api/actions/alerts/resume
 POST /api/actions/power/ac-recovery  {"mode": "on"}  (on, off or last, if the BIOS offers it)
 
-Next.js proxy (same paths under /api/sheltie/):
+Dashboard proxy on :8710 (same paths under /api/sheltie/, served by `monitors/web.py`):
 
 GET  /api/sheltie/status | health | network | docker | sites | events | power
 POST /api/sheltie/actions/...

@@ -16,7 +16,7 @@ This document describes how Sheltie works today and the architecture it is movin
 flowchart LR
   subgraph Container["sheltie container - privileged, host network"]
     direction TB
-    NEXT["Next.js :8710<br/>proxy /api/sheltie/*"] -->|HTTP| API["Python stdlib HTTP :8711<br/>monitors/api.py"]
+    WEB["Python stdlib HTTP :8710<br/>static dashboard + proxy /api/sheltie/*<br/>monitors/web.py"] -->|HTTP| API["Python stdlib HTTP :8711<br/>monitors/api.py"]
     MAIN["app.py main loop<br/>sequential checks every 30s"] --> AM["AlertManager"]
     DOCK["DockerEventMonitor thread"] --> AM
     HEAL["AutoHeal thread - 5m"] --> AM
@@ -52,7 +52,7 @@ These limits are what the target architecture removes:
 2. Writing `state.json` on every `set()` is slow, wears SD cards, and is not crash-safe.
 3. Nothing records *when* the host went down or *why*.
 4. Checks run in sequence, so one slow site delays every other check.
-5. Two runtimes (Python and Node) share one container without a supervisor.
+5. ~~Two runtimes (Python and Node) share one container without a supervisor.~~ Done: the dashboard is a static export served by the Python process, so the container runs one process under `tini`.
 
 ---
 

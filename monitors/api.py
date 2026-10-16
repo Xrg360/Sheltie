@@ -14,7 +14,7 @@ class ApiServer:
     def __init__(self, config: dict[str, Any], status_service: Any, action_service: Any) -> None:
         api_config = config.get("api", {}) or {}
         self.enabled = bool(api_config.get("enabled", True))
-        # The dashboard reaches the API through its own server-side proxy on 127.0.0.1,
+        # The dashboard reaches the API through its own proxy (monitors/web.py) on 127.0.0.1,
         # so the API does not need to listen on the network by default.
         self.host = str(env("API_HOST") or api_config.get("host", "127.0.0.1"))
         self.port = int(env("API_PORT") or api_config.get("port", 8711))
