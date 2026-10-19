@@ -1,4 +1,4 @@
-FROM node:24-slim AS web-build
+FROM node:26-slim AS web-build
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY src ./src
 RUN npm run build
 
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
