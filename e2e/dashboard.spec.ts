@@ -98,7 +98,7 @@ test("power on with AC shows its state and changes only after confirmation", asy
 test("DNS names: list, add from a discovered app, and remove only after confirmation", async ({ page }) => {
   await page.goto("network/");
   const names = page.getByRole("list", { name: "Names" });
-  await expect(names.getByRole("link", { name: "cloud.home.internals" })).toBeVisible();
+  await expect(names.getByRole("link", { name: "cloud.home.internals", exact: true })).toBeVisible();
   // A name whose app isn't answering says so in words, not only color.
   await expect(names.getByRole("listitem").filter({ hasText: "blog.home.internals" })).toContainText("Not answering");
 
@@ -108,13 +108,13 @@ test("DNS names: list, add from a discovered app, and remove only after confirma
   // Picking an app suggests its name.
   await expect(sheet.getByLabel("Name", { exact: true })).toHaveValue("grafana");
   await sheet.getByRole("button", { name: "Add name" }).click();
-  await expect(names.getByRole("link", { name: "grafana.home.internals" })).toBeVisible();
+  await expect(names.getByRole("link", { name: "grafana.home.internals", exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Remove grafana.home.internals" }).click();
   const confirm = page.getByRole("dialog", { name: "Remove grafana.home.internals?" });
   await expect(confirm).toBeVisible();
   await confirm.getByRole("button", { name: "Remove" }).click();
-  await expect(names.getByRole("link", { name: "grafana.home.internals" })).toHaveCount(0);
+  await expect(names.getByRole("link", { name: "grafana.home.internals", exact: true })).toHaveCount(0);
 });
 
 test("can be installed as an app, with a shortcut to DNS names", async ({ page, request }) => {
