@@ -3,7 +3,7 @@
 // an auto-healed container this morning, and the blog is down right now.
 
 import { safeName } from "./format";
-import type { AcRecoveryMode, ActionResult, Container, EventItem, Site, SiteSample, Snapshot } from "./types";
+import type { AcRecoveryMode, ActionResult, Container, EventItem, NameCheck, NameRecord, NameTargets, Site, SiteSample, Snapshot } from "./types";
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -65,7 +65,35 @@ type DemoState = {
   silencedUntil: number | null;
   silenced: boolean;
   acRecovery: AcRecoveryMode;
+  names: NameRecord[];
+  zone: { label: string; tld: string };
+  tailnetOnly: boolean;
 };
+
+const DEMO_TAILNET_IP = "100.101.102.103";
+
+function nameRecord(id: number, name: string, target: string, port: number | null, label: string, reachable: NameRecord["reachable"] = { ok: true, why: null }): NameRecord {
+  const zone = "home.internals";
+  return {
+    id,
+    name,
+    fqdn: `${name}.${zone}`,
+    kind: port ? "proxy" : "device",
+    url: `http://${name}.${zone}`,
+    points_to: port ? DEMO_TAILNET_IP : target,
+    target_host: target,
+    target_port: port,
+    scheme: "http",
+    websockets: true,
+    source: port ? `container:${target}` : "device",
+    label,
+    synced: true,
+    sync_error: null,
+    created_at: Math.round((Date.now() - 30 * 24 * HOUR) / 1000),
+    updated_at: Math.round((Date.now() - 30 * 24 * HOUR) / 1000),
+    reachable,
+  };
+}
 
 const state: DemoState = {
   sites: [
@@ -211,6 +239,15 @@ const state: DemoState = {
   silenced: false,
   // The demo server came back by itself after last night's power cut, so power-on with AC is on.
   acRecovery: "on",
+  names: [
+    nameRecord(1, "cloud", "nextcloud", 80, "nextcloud"),
+    nameRecord(2, "media", "jellyfin", 8096, "jellyfin"),
+    nameRecord(3, "ha", "homeassistant", 8123, "homeassistant"),
+    nameRecord(4, "blog", "blog", 2368, "blog", { ok: false, why: "Nothing answered on blog:2368" }),
+    nameRecord(5, "nas", "100.88.12.40", null, "nas (Tailscale device)"),
+  ],
+  zone: { label: "home", tld: "internals" },
+  tailnetOnly: true,
 };
 
 function wave(period: number, phase = 0): number {
@@ -279,7 +316,95 @@ export function demoSnapshot(): Snapshot {
       battery_status: null,
       ac_recovery: { supported: true, mode: state.acRecovery, modes: ["off", "last", "on"], method: "dell-smbios", reason: null },
     },
+    names: {
+      enabled: true,
+      zone: demoZone(),
+      domain: { ...state.zone },
+      server: { name: "homelab", ip: DEMO_TAILNET_IP, dns_name: "homelab.tail1234.ts.net", error: null },
+      records: state.names.map((entry) => ({ ...entry, fqdn: `${entry.name}.${demoZone()}`, url: `http://${entry.name}.${demoZone()}` })),
+      tailnet_only: state.tailnetOnly,
+      npm_configured: true,
+      last_sync: { at: Math.round(Date.now() / 1000) - 120, ok: true, error: null },
+    },
   };
+}
+
+function demoZone(): string {
+  return `${state.zone.label}.${state.zone.tld}`;
+}
+
+export function demoNameTargets(): NameTargets {
+  const apps = [
+    ["nextcloud", 80],
+    ["jellyfin", 8096],
+    ["homeassistant", 8123],
+    ["vaultwarden", 80],
+    ["immich-server", 2283],
+    ["grafana", 3000],
+    ["blog", 2368],
+  ] as const;
+  return {
+    server: { name: "homelab", ip: DEMO_TAILNET_IP },
+    apps: apps.map(([name, port]) => ({
+      id: `container:${name}:${port}`,
+      source: `container:${name}`,
+      name,
+      label: `${name} · port ${port} on the homelab network`,
+      host: name,
+      port,
+      detail: `port ${port} on the homelab network`,
+      disabled: false,
+      state: state.containers.find((entry) => entry.name === name)?.status ?? "running",
+    })),
+    ports: [{ id: "port:22", source: "port:22", name: "SSH", label: "SSH · port 22", host: DEMO_TAILNET_IP, port: 22, detail: "port 22", disabled: false }],
+    devices: [
+      { name: "homelab", dns_name: "homelab.tail1234.ts.net", ip: DEMO_TAILNET_IP, os: "linux", online: true, is_self: true },
+      { name: "nas", dns_name: "nas.tail1234.ts.net", ip: "100.88.12.40", os: "linux", online: true, is_self: false },
+      { name: "priya-phone", dns_name: "priya-phone.tail1234.ts.net", ip: "100.70.176.88", os: "android", online: false, is_self: false },
+    ],
+    errors: {},
+  };
+}
+
+export function demoNameChecks(): NameCheck[] {
+  const zone = demoZone();
+  return [
+    { id: "tailscale", title: "Tailscale", ok: true, detail: `This server is homelab (${DEMO_TAILNET_IP}).`, fix: null },
+    { id: "dns", title: "DNS server", ok: true, detail: `Answering for *.${zone} on ${DEMO_TAILNET_IP}.`, fix: null },
+    { id: "split_dns", title: "Tailscale split DNS", ok: true, detail: `Your devices ask ${DEMO_TAILNET_IP} about ${zone}.`, fix: null },
+    { id: "npm", title: "Nginx Proxy Manager", ok: true, detail: "Connected as sheltie@example.com (Nginx Proxy Manager 2.12.1).", fix: null },
+    { id: "docker", title: "App discovery", ok: true, detail: "Reading the container list.", fix: null },
+  ];
+}
+
+function demoNameAction(action: string, body: Record<string, unknown>): ActionResult {
+  const zone = demoZone();
+  if (action === "add" || action === "update") {
+    const name = String(body.name || "").trim().toLowerCase();
+    if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(name)) return { ok: false, error: "Name can use only a-z, 0-9 and hyphens, and can't start or end with a hyphen.", field: "name" };
+    const id = action === "add" ? Math.max(0, ...state.names.map((entry) => entry.id)) + 1 : Number(body.id);
+    if (state.names.some((entry) => entry.name === name && entry.id !== id)) return { ok: false, error: `${name}.${zone} already exists.`, field: "name" };
+    const port = body.port ? Number(body.port) : null;
+    const record = nameRecord(id, name, String(body.host || ""), port, String(body.label || body.host || ""));
+    state.names = [...state.names.filter((entry) => entry.id !== id), record].sort((a, b) => a.name.localeCompare(b.name));
+    return { ok: true, message: `${name}.${zone} ${action === "add" ? "added" : "saved"}`, record };
+  }
+  if (action === "remove") {
+    const record = state.names.find((entry) => entry.id === Number(body.id));
+    if (!record) return { ok: false, error: "That name doesn't exist any more." };
+    state.names = state.names.filter((entry) => entry !== record);
+    return { ok: true, message: `${record.name}.${zone} removed` };
+  }
+  if (action === "domain") {
+    state.zone = { label: String(body.label || "").toLowerCase(), tld: String(body.tld || "").toLowerCase() };
+    return { ok: true, message: `Names now end in .${demoZone()}`, zone: demoZone() };
+  }
+  if (action === "access") {
+    state.tailnetOnly = body.tailnet_only === true;
+    return { ok: true, message: state.tailnetOnly ? "Only Tailscale devices can open names" : "Names open from any network that reaches the proxy" };
+  }
+  if (action === "sync") return { ok: true, message: "DNS and proxy are up to date" };
+  return { ok: false, error: `Unknown action: names/${action}` };
 }
 
 function startContainer(name: string): ActionResult {
@@ -306,6 +431,7 @@ function startContainer(name: string): ActionResult {
 }
 
 export function demoAction(path: string, body: Record<string, unknown>): ActionResult {
+  if (path.startsWith("actions/names/")) return demoNameAction(path.slice("actions/names/".length), body);
   switch (path) {
     case "actions/docker/restart":
       return startContainer(String(body.container || ""));

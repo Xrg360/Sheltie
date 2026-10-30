@@ -798,6 +798,33 @@ a.stat:hover {
   text-decoration: none;
 }
 
+/* Rows whose actions wrap under the text on narrow screens (Network → Names). */
+.row--wrap {
+  flex-wrap: wrap;
+}
+
+.row--wrap > .row__main {
+  flex: 1 1 16rem;
+}
+
+.plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.steps {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
 .row--button[aria-current="true"] {
   background: var(--accent-soft);
 }

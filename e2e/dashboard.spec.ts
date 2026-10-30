@@ -94,3 +94,41 @@ test("power on with AC shows its state and changes only after confirmation", asy
   await page.getByRole("dialog", { name: "Turn on power on with AC?" }).getByRole("button", { name: "Turn on" }).click();
   await expect(power.getByText("After a power cut, this machine starts by itself when power returns.")).toBeVisible();
 });
+
+test("DNS names: list, add from a discovered app, and remove only after confirmation", async ({ page }) => {
+  await page.goto("network/");
+  const names = page.getByRole("list", { name: "Names" });
+  await expect(names.getByRole("link", { name: "cloud.home.internals" })).toBeVisible();
+  // A name whose app isn't answering says so in words, not only color.
+  await expect(names.getByRole("listitem").filter({ hasText: "blog.home.internals" })).toContainText("Not answering");
+
+  await page.getByRole("button", { name: "Add name" }).click();
+  const sheet = page.getByRole("dialog", { name: "Add a name" });
+  await sheet.getByRole("combobox", { name: "An app on this server" }).selectOption({ label: "grafana · port 3000 on the homelab network" });
+  // Picking an app suggests its name.
+  await expect(sheet.getByLabel("Name", { exact: true })).toHaveValue("grafana");
+  await sheet.getByRole("button", { name: "Add name" }).click();
+  await expect(names.getByRole("link", { name: "grafana.home.internals" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Remove grafana.home.internals" }).click();
+  const confirm = page.getByRole("dialog", { name: "Remove grafana.home.internals?" });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole("button", { name: "Remove" }).click();
+  await expect(names.getByRole("link", { name: "grafana.home.internals" })).toHaveCount(0);
+});
+
+test("can be installed as an app, with a shortcut to DNS names", async ({ page, request }) => {
+  await page.goto("settings/");
+  await expect(page.getByRole("heading", { name: "Install Sheltie" })).toBeVisible();
+  const href = await page.locator('link[rel="manifest"]').getAttribute("href");
+  expect(href).toBeTruthy();
+  const response = await request.get(new URL(href ?? "", page.url()).href);
+  expect(response.ok()).toBe(true);
+  const manifest = await response.json();
+  expect(manifest.name).toBe("Sheltie");
+  expect(manifest.display).toBe("standalone");
+  expect(manifest.shortcuts.map((shortcut: { name: string }) => shortcut.name)).toContain("DNS names");
+  for (const icon of manifest.icons as Array<{ src: string }>) {
+    expect((await request.get(new URL(icon.src, response.url()).href)).ok(), icon.src).toBe(true);
+  }
+});

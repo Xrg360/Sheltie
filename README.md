@@ -51,7 +51,7 @@ docker run -d --name sheltie --restart unless-stopped --privileged --network hos
   ghcr.io/xrg360/sheltie:latest
 ```
 
-Open `http://<server-ip>:8710`. To read the generated action token, run `docker exec sheltie python -c "import json; print(json.load(open('state/state.json'))['api.action_token'])"`, or set your own with `SHELTIE_ACTION_TOKEN`. Add Telegram with two environment variables (see [Telegram](#telegram-commands)).
+Open `http://<server-ip>:8710`. To see the generated action token, run `docker exec sheltie python -m monitors.token`, or set your own with `SHELTIE_ACTION_TOKEN`. Add Telegram with two environment variables (see [Telegram](#telegram-commands)).
 
 ## Features
 
@@ -104,6 +104,22 @@ The sample config and Compose file use example values. Change them to match your
 - Ethernet: `enp2s0` (find yours with `ip -br link`)
 - Wi-Fi: `wlp1s0` (remove the `network` entries you do not have; both are optional)
 - Timezone: `Asia/Kolkata` (`TZ` in `compose.yml`)
+
+## Install as an app
+
+Sheltie installs like a native app on phones, tablets and computers (a web app: no app store). It opens in
+its own window from the home screen or dock, includes every page (DNS names too, with a shortcut straight to
+them), and opens with the last known state when you're offline.
+
+Browsers only install apps from a secure address, so put Sheltie on https for your tailnet first:
+
+```bash
+sudo tailscale serve --bg --https=8443 http://127.0.0.1:8710
+```
+
+Then open `https://<server>.<tailnet>.ts.net:8443` and use **Settings → Install Sheltie** (or the browser's
+**Install app**; on iPhone and iPad, **Share → Add to Home Screen**). Turn on HTTPS Certificates in the
+[Tailscale admin console → DNS](https://login.tailscale.com/admin/dns) if `tailscale serve` asks for it.
 
 ## Docker Compose
 
@@ -501,19 +517,33 @@ POST /api/actions/alerts/silence    {"minutes": 60}  (omit minutes to silence un
 POST /api/actions/alerts/resume
 POST /api/actions/power/ac-recovery  {"mode": "on"}  (on, off or last, if the BIOS offers it)
 
-Next.js proxy (same paths under /api/sheltie/):
+DNS names (when turned on, see "DNS names" below):
 
-GET  /api/sheltie/status | health | network | docker | sites | events | power
+GET  /api/names              Names, domain, proxy sync state; {"enabled": false} when off
+GET  /api/names/targets      Apps, open ports and Tailscale devices a name can point at
+GET  /api/names/checks       DNS server, split DNS, proxy login and discovery checks
+POST /api/actions/names/add     {"name": "kuma", "mode": "app", "host": "uptime-kuma", "port": 3001}
+POST /api/actions/names/update  {"id": 3, ...same fields as add}
+POST /api/actions/names/remove  {"id": 3}
+POST /api/actions/names/domain  {"label": "home", "tld": "internals"}
+POST /api/actions/names/access  {"tailnet_only": true}
+POST /api/actions/names/sync
+
+Dashboard proxy on :8710 (same paths under /api/sheltie/, served by `monitors/web.py`):
+
+GET  /api/sheltie/status | health | network | docker | sites | events | power | names
 POST /api/sheltie/actions/...
 ```
 
 `/metrics` is Prometheus-compatible.
 
-Action endpoints always require `X-Sheltie-Action-Token`. Set it with `SHELTIE_ACTION_TOKEN` or `actions.token`. If neither is set, Sheltie generates a random token on first start and stores it in `state/state.json` (mode `0600`) under `api.action_token`. The token is never written to the logs. Read it with:
+Action endpoints always require `X-Sheltie-Action-Token`. Set it with `SHELTIE_ACTION_TOKEN` or `actions.token`. If neither is set, Sheltie generates a random token on first start and stores it in `state/state.json` (mode `0600`) under `api.action_token`. The token is never written to the logs. Print it with:
 
 ```bash
-docker exec sheltie python -c "import json; print(json.load(open('state/state.json'))['api.action_token'])"
+docker exec sheltie python -m monitors.token
 ```
+
+It prints whichever token the API is actually checking (environment, then `config.yml`, then the generated one), so it is also the quickest way to confirm what to paste into the dashboard.
 
 `POST /api/actions/docker/restart` expects JSON:
 
@@ -533,6 +563,57 @@ curl -X POST http://127.0.0.1:8710/api/sheltie/actions/docker/restart \
 ```
 
 For security, action endpoints are intended for trusted LAN deployments or reverse proxies with authentication. The Sheltie container blocks restarting itself by default through `actions.blocked_containers`.
+
+## DNS names
+
+Open the apps on your server by name, like `sheltie.home.internals`, from every device on your Tailscale
+network and nowhere else. Names are managed on Sheltie's **Network** page. It is off by default.
+
+```
+your phone / laptop (Tailscale on)
+  │ 1. "where is sheltie.home.internals?"
+  ▼
+Tailscale split DNS ── *.home.internals ──▶ sheltie-dns (CoreDNS on this server's Tailscale IP, port 53)
+  │ 2. "100.x.y.z"
+  ▼
+Nginx Proxy Manager :80 ── Host: sheltie.home.internals ──▶ 100.x.y.z:8710 (Sheltie)
+```
+
+Sheltie writes the DNS zone to `state/dns/` and keeps a proxy host in Nginx Proxy Manager for every name that
+points at an app. A name can also point straight at another Tailscale device (DNS only, no proxy). Adding,
+changing and removing names needs the action token, and every change is recorded in Incidents.
+
+### Turn it on
+
+1. In `.env`, add `COMPOSE_FILE=compose.yml:compose.names.yml`, then `docker compose up -d`. This mounts
+   tailscaled's socket (read-only use: list devices, check split DNS) and starts `sheltie-dns`, a CoreDNS
+   container that binds only to the Tailscale IP.
+2. **Split DNS:** in the [Tailscale admin console → DNS](https://login.tailscale.com/admin/dns), choose
+   **Add nameserver → Custom**, enter this server's Tailscale IP, turn on **Restrict to domain** and enter
+   `home.internals` (or your `SHELTIE_NAMES_DOMAIN`).
+3. **Nginx Proxy Manager:** add a user (not an administrator, no 2FA) with Item visibility *Created items only*,
+   Proxy hosts and Access lists *Manage*, everything else *Hidden*. Put its email and password in `.env` as
+   `SHELTIE_NAMES_NPM_EMAIL` and `SHELTIE_NAMES_NPM_PASSWORD`, then `docker compose up -d`.
+
+**Network → DNS setup** checks each of these live and says what is missing. By default the proxy only lets
+Tailscale addresses (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) through; you can turn that off under
+**Domain and access**.
+
+### Importing names
+
+Names from another install (a copy of its `names.db`, or any database with the same tables) can be brought in,
+keeping the domain and the proxy hosts already made in Nginx Proxy Manager:
+
+```bash
+# stop the app that writes the database first, so it is complete
+cp /path/to/names.db /path/to/sheltie/state/names-import.db
+docker exec sheltie python -m monitors.names import state/names-import.db
+docker compose restart sheltie
+```
+
+Use the same Nginx Proxy Manager user that made those proxy hosts, so Sheltie can see and keep them. The import
+only fills an empty list, never overwrites. Anything that isn't an app or device name has its proxy host removed
+on the next sync, and the access list is renamed to *Sheltie: Tailscale devices only*.
 
 ## Auto-Heal Cron
 

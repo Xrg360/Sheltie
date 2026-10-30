@@ -8,18 +8,23 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 from monitors.config import env
+from monitors.names import UserError as NamesUserError
+
+TOKEN_COMMAND = "docker exec sheltie python -m monitors.token"
+NAMES_OFF = {"ok": False, "enabled": False, "error": "DNS names are turned off. Set SHELTIE_NAMES_ENABLED=1 to manage them from Sheltie."}
 
 
 class ApiServer:
-    def __init__(self, config: dict[str, Any], status_service: Any, action_service: Any) -> None:
+    def __init__(self, config: dict[str, Any], status_service: Any, action_service: Any, names_service: Any = None) -> None:
         api_config = config.get("api", {}) or {}
         self.enabled = bool(api_config.get("enabled", True))
-        # The dashboard reaches the API through its own server-side proxy on 127.0.0.1,
+        # The dashboard reaches the API through its own proxy (monitors/web.py) on 127.0.0.1,
         # so the API does not need to listen on the network by default.
         self.host = str(env("API_HOST") or api_config.get("host", "127.0.0.1"))
         self.port = int(env("API_PORT") or api_config.get("port", 8711))
         self.status_service = status_service
         self.action_service = action_service
+        self.names_service = names_service
         self.action_token = resolve_action_token(config, status_service.state)
         self.server: ThreadingHTTPServer | None = None
         self.thread: threading.Thread | None = None
@@ -30,6 +35,7 @@ class ApiServer:
 
         status_service = self.status_service
         action_service = self.action_service
+        names_service = self.names_service
         action_token = self.action_token
 
         class Handler(BaseHTTPRequestHandler):
@@ -43,6 +49,9 @@ class ApiServer:
                     "/api/sites": status_service.sites,
                     "/api/power": lambda: status_service.power(),
                     "/api/events": lambda: {"events": status_service.history.recent(100)},
+                    "/api/names": lambda: names_service.state() if names_service else {"enabled": False},
+                    "/api/names/targets": lambda: names_service.targets() if names_service else NAMES_OFF,
+                    "/api/names/checks": lambda: {"checks": names_service.checks()} if names_service else NAMES_OFF,
                     "/metrics": lambda: metrics_payload(status_service),
                     "/": lambda: dashboard_html("home"),
                     "/monitoring": lambda: dashboard_html("monitoring"),
@@ -127,6 +136,12 @@ class ApiServer:
                 if path == "/api/actions/events/clear":
                     self._json(action_service.clear_events())
                     return True
+                if path.startswith("/api/actions/names/"):
+                    result = names_action(names_service, path.removeprefix("/api/actions/names/"), self._read_json())
+                    if result is None:
+                        return False
+                    self._json(result)
+                    return True
                 return False
 
             def log_message(self, format: str, *args: Any) -> None:
@@ -196,8 +211,8 @@ def resolve_action_token(config: dict[str, Any], state: Any) -> str:
     generated = state.get(GENERATED_TOKEN_KEY)
     if generated:
         logging.warning(
-            "No action token configured; using the auto-generated token stored in state under %s",
-            GENERATED_TOKEN_KEY,
+            "No action token configured; using the auto-generated one. Show it with: %s",
+            TOKEN_COMMAND,
         )
         return str(generated)
 
@@ -205,13 +220,44 @@ def resolve_action_token(config: dict[str, Any], state: Any) -> str:
     state.set(GENERATED_TOKEN_KEY, generated)
     # Never log the token itself: container logs are kept, shared and pasted into issues.
     logging.warning(
-        "No action token configured. Generated one and stored it in state under %s. "
-        "Read it with: docker exec sheltie python -c \"import json; print(json.load(open('state/state.json'))['%s'])\" "
+        "No action token configured, so Sheltie generated one. Show it with: %s "
         "(or set SHELTIE_ACTION_TOKEN to choose your own)",
-        GENERATED_TOKEN_KEY,
-        GENERATED_TOKEN_KEY,
+        TOKEN_COMMAND,
     )
     return generated
+
+
+def names_action(names: Any, action: str, body: dict[str, Any]) -> dict[str, Any] | None:
+    """Run POST /api/actions/names/<action>. None means there is no such action (404)."""
+    if action not in ("add", "update", "remove", "domain", "access", "sync"):
+        return None
+    if names is None:
+        return dict(NAMES_OFF)
+    try:
+        if action == "add":
+            record = names.create_record(body)
+            return {"ok": True, "message": f"{record['fqdn']} added", "record": record}
+        if action == "update":
+            record = names.update_record(body)
+            return {"ok": True, "message": f"{record['fqdn']} saved", "record": record}
+        if action == "remove":
+            removed = names.delete_record(body)
+            return {"ok": True, "message": f"{removed['fqdn']} removed"}
+        if action == "domain":
+            result = names.change_domain(body)
+            return {"ok": True, "message": f"Names now end in .{result['zone']}", "zone": result["zone"]}
+        if action == "access":
+            on = body.get("tailnet_only") is True
+            sync = names.set_tailnet_only(on)
+            message = "Only Tailscale devices can open names" if on else "Names open from any network that reaches the proxy"
+            return {"ok": True, "message": message, "sync": sync}
+        names.write_dns()
+        sync = names.sync()
+        if not sync.get("ok"):
+            return {"ok": False, "error": sync.get("error") or "Sync failed", "sync": sync}
+        return {"ok": True, "message": "DNS and proxy are up to date", "sync": sync}
+    except NamesUserError as exc:
+        return {"ok": False, "error": str(exc), "field": exc.field}
 
 
 def _label(value: Any) -> str:

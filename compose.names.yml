@@ -1,0 +1,45 @@
+# DNS names for your tailnet: sheltie.home.internals instead of 100.x.y.z:8710.
+# Needs Tailscale on this server and Nginx Proxy Manager. Turn it on by adding this to .env:
+#
+#   COMPOSE_FILE=compose.yml:compose.names.yml
+#
+# then `docker compose up -d`. See "DNS names" in the README for the one-time setup.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  sheltie:
+    volumes:
+      # Read-only use: list tailnet devices and check split DNS.
+      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
+    environment:
+      SHELTIE_NAMES_ENABLED: "1"
+      SHELTIE_NAMES_DOMAIN: ${SHELTIE_NAMES_DOMAIN:-home.internals}
+      SHELTIE_NAMES_NPM_EMAIL: ${SHELTIE_NAMES_NPM_EMAIL:-}
+      SHELTIE_NAMES_NPM_PASSWORD: ${SHELTIE_NAMES_NPM_PASSWORD:-}
+
+  # DNS for *.<your domain>. Binds only to this server's Tailscale IP, so only your
+  # tailnet can ask it anything. Reloads by itself when Sheltie rewrites the zone.
+  dns:
+    image: coredns/coredns:1.12.1
+    container_name: sheltie-dns
+    restart: unless-stopped
+    network_mode: host
+    user: "0:0"                 # needs to bind port 53; every capability except that one is dropped
+    command: ["-conf", "/dns/Corefile"]
+    volumes:
+      - ./state/dns:/dns:ro
+    depends_on:
+      sheltie:
+        condition: service_healthy
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
+    logging: *logging

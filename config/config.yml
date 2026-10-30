@@ -44,6 +44,14 @@ actions:
   blocked_containers:
     - sheltie
 
+# DNS names for your tailnet. Usually turned on with compose.names.yml, which sets
+# SHELTIE_NAMES_ENABLED=1 and the Nginx Proxy Manager login. See "DNS names" in the README.
+names:
+  enabled: false
+  domain: home.internals
+  npm_url: http://127.0.0.1:81
+  npm_container: npm
+
 auto_heal:
   enabled: true
   interval: 300
