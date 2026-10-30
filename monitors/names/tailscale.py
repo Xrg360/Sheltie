@@ -53,7 +53,7 @@ class Device:
 @dataclass(frozen=True)
 class Server:
     hostname: str
-    dns_name: str  # e.g. pookie.tail7ff517.ts.net (no trailing dot)
+    dns_name: str  # e.g. homelab.tail1234.ts.net (no trailing dot)
     ip: str
     owner_login: str
     https_enabled: bool

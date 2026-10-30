@@ -18,7 +18,7 @@ from monitors.names.discovery import Container, env_ports, parse_container
 from monitors.names.npm import PATHS, NpmError
 from monitors.names.tailscale import Device, Server, TailscaleError
 
-SERVER_IP = "100.127.28.25"
+SERVER_IP = "100.101.102.103"
 
 
 def make_config(data_dir: str, **over: Any) -> NamesConfig:
@@ -39,11 +39,11 @@ class FakeTS:
     def server(self) -> Server:
         if self.down:
             raise TailscaleError("Can't reach tailscaled")
-        return Server("pookie", "pookie.tail.ts.net", SERVER_IP, "me@example.com", True)
+        return Server("homelab", "homelab.tail1234.ts.net", SERVER_IP, "me@example.com", True)
 
     def devices(self) -> list[Device]:
         return [
-            Device("pookie", "pookie.tail.ts.net", SERVER_IP, "linux", True, True),
+            Device("homelab", "homelab.tail1234.ts.net", SERVER_IP, "linux", True, True),
             Device("phone", "phone.tail.ts.net", "100.70.176.88", "android", True, False),
         ]
 
@@ -370,7 +370,7 @@ class TargetTests(Base):
         # The proxy and the DNS sidecar are never offered.
         self.assertFalse([key for key in by_id if key.startswith(("container:npm:", "container:sheltie-dns:"))])
         self.assertEqual([p["port"] for p in t["ports"]], [22])
-        self.assertEqual([d["name"] for d in t["devices"]], ["pookie", "phone"])
+        self.assertEqual([d["name"] for d in t["devices"]], ["homelab", "phone"])
 
     def test_checks(self) -> None:
         self.ts.routes = {"home.internals": [SERVER_IP]}
@@ -405,7 +405,7 @@ class ImportTests(Base):
             INSERT INTO records (name, kind, label, npm_kind, npm_id, created_at, updated_at, created_by)
                 VALUES ('dns', 'system', 'DNS redirect', 'redirect', 1, 1, 1, 'system');
             INSERT INTO records (name, kind, target_host, target_port, source, label, npm_kind, npm_id, created_at, updated_at, created_by)
-                VALUES ('sheltie', 'proxy', '100.127.28.25', 8710, 'container:sheltie', 'sheltie', 'proxy', 2, 5, 6, 'me@example.com');
+                VALUES ('sheltie', 'proxy', '100.101.102.103', 8710, 'container:sheltie', 'sheltie', 'proxy', 2, 5, 6, 'me@example.com');
             INSERT INTO records (name, kind, target_host, created_at, updated_at) VALUES ('phone', 'device', '100.70.176.88', 7, 8);
         """)
         conn.commit()
