@@ -1,8 +1,9 @@
 "use client";
 
-import { Copy, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { CopyText } from "@/components/ui/copy";
 import { Dialog } from "@/components/ui/dialog";
 import { StatusIcon } from "@/components/ui/status";
 import { NAV } from "@/lib/nav";
@@ -66,7 +67,7 @@ export function ConfirmDialog() {
 }
 
 export function TokenDialog() {
-  const { tokenRequest, settleToken, prefs, toast } = useSheltie();
+  const { tokenRequest, settleToken, prefs } = useSheltie();
   const [value, setValue] = useState("");
 
   useEffect(() => {
@@ -91,19 +92,7 @@ export function TokenDialog() {
       }
     >
       <p className="muted">{strings.actions.tokenBody}</p>
-      <div className="cluster">
-        <code className="mono">{strings.actions.tokenCommand}</code>
-        <button
-          type="button"
-          className="btn btn--ghost btn--sm btn--icon"
-          aria-label="Copy command"
-          onClick={() => {
-            navigator.clipboard?.writeText(strings.actions.tokenCommand).then(() => toast({ tone: "ok", title: "Copied" }));
-          }}
-        >
-          <Copy size={14} aria-hidden="true" />
-        </button>
-      </div>
+      <CopyText text={strings.actions.tokenCommand} what="command" />
       <form
         id="token-form"
         className="field"

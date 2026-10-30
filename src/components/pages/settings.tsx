@@ -1,9 +1,11 @@
 "use client";
 
-import { Bell, BookOpen, Info, KeyRound, Keyboard, Monitor, Moon, Palette, Pin, Star, Sun } from "lucide-react";
+import { Bell, BookOpen, Download, Info, KeyRound, Keyboard, Monitor, Moon, Palette, Pin, Star, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { TimeAgo } from "./shared";
+import { useInstall } from "@/components/shell/pwa";
+import { CopyText } from "@/components/ui/copy";
 import { Card, PageHeader, Segmented } from "@/components/ui/layout";
 import { StatusPill } from "@/components/ui/status";
 import { IS_DEMO } from "@/lib/api";
@@ -16,6 +18,7 @@ const t = strings.settings;
 
 export function SettingsPage() {
   const { prefs, setPrefs, snapshot, toast, setShortcutsOpen } = useSheltie();
+  const app = useInstall();
   const [token, setToken] = useState(prefs.token);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("default");
 
@@ -113,6 +116,7 @@ export function SettingsPage() {
               <span id="token-hint" className="hint">
                 {t.tokenHint}
               </span>
+              <CopyText text={strings.actions.tokenCommand} what="command" />
             </div>
             <div>
               <button type="submit" className="btn btn--primary">
@@ -120,6 +124,29 @@ export function SettingsPage() {
               </button>
             </div>
           </form>
+        </Card>
+
+        <Card title={t.app} icon={<Download size={16} aria-hidden="true" />} id="app">
+          <p className="muted">{t.appHint}</p>
+          {app.state === "installed" ? (
+            <span>
+              <StatusPill tone="ok">{t.appInstalled}</StatusPill>
+            </span>
+          ) : app.state === "available" ? (
+            <div>
+              <button type="button" className="btn" onClick={() => void app.install()}>
+                <Download size={15} aria-hidden="true" />
+                {t.appInstall}
+              </button>
+            </div>
+          ) : app.state === "insecure" ? (
+            <div className="stack stack--sm">
+              <span className="hint">{t.appInsecure}</span>
+              <CopyText text={t.appServeCommand} what="command" />
+            </div>
+          ) : (
+            <p className="hint">{t.appManual}</p>
+          )}
         </Card>
 
         <Card title={t.pins} icon={<Pin size={16} aria-hidden="true" />} id="pins">

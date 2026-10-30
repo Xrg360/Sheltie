@@ -7,6 +7,8 @@ RUN npm ci
 
 COPY next.config.ts tsconfig.json next-env.d.ts ./
 COPY src ./src
+# Web app manifest, icons and service worker, so Sheltie can be installed as an app.
+COPY public ./public
 RUN npm run build
 
 

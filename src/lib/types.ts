@@ -118,6 +118,74 @@ export type PowerPayload = {
   ac_recovery: AcRecovery;
 };
 
+/** A friendly name on the tailnet, e.g. sheltie.home.internals (monitors/names/service.py). */
+export type NameRecord = {
+  id: number;
+  name: string;
+  fqdn: string;
+  /** "proxy": through Nginx Proxy Manager to an app's port. "device": DNS only, straight to a Tailscale device. */
+  kind: "proxy" | "device";
+  url: string;
+  points_to: string;
+  target_host: string;
+  target_port: number | null;
+  scheme: "http" | "https";
+  websockets: boolean;
+  source: string;
+  label: string;
+  synced: boolean;
+  sync_error: string | null;
+  created_at: number;
+  updated_at: number;
+  reachable: { ok: boolean | null; why: string | null };
+};
+
+export type NamesSync = { at: number; ok: boolean; error: string | null };
+
+export type NamesPayload =
+  | { enabled: false }
+  | {
+      enabled: true;
+      zone: string;
+      domain: { label: string; tld: string };
+      server: { name: string; ip: string; dns_name: string; error: string | null };
+      records: NameRecord[];
+      tailnet_only: boolean;
+      npm_configured: boolean;
+      last_sync: NamesSync | null;
+    };
+
+/** Something a name can point at, from GET /api/names/targets. */
+export type NameTarget = {
+  id: string;
+  source: string;
+  name: string;
+  label: string;
+  host: string;
+  port: number | null;
+  detail: string;
+  disabled: boolean;
+  state?: string;
+};
+
+export type NameDevice = { name: string; dns_name: string; ip: string; os: string; online: boolean; is_self: boolean };
+
+export type NameTargets = {
+  server: { name: string; ip: string };
+  apps: NameTarget[];
+  ports: NameTarget[];
+  devices: NameDevice[];
+  errors: Record<string, string>;
+};
+
+export type NameCheck = {
+  id: "tailscale" | "dns" | "split_dns" | "npm" | "docker" | string;
+  title: string;
+  ok: boolean;
+  detail: string;
+  fix: { steps: string[]; link: string | null; copy: Record<string, string> | null } | null;
+};
+
 export type Snapshot = {
   status: StatusPayload | null;
   health: HealthPayload | null;
@@ -126,6 +194,8 @@ export type Snapshot = {
   sites: SitesPayload | null;
   /** Missing in snapshots cached by older versions. */
   power?: PowerPayload | null;
+  /** Missing in snapshots cached by older versions. */
+  names?: NamesPayload | null;
   events: EventItem[] | null;
   fetchedAt: number;
 };

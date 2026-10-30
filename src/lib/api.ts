@@ -1,5 +1,5 @@
-import { demoAction, demoSnapshot } from "./demo-data";
-import type { ActionResult, DockerPayload, EventItem, HealthPayload, NetworkPayload, PowerPayload, SitesPayload, Snapshot, StatusPayload } from "./types";
+import { demoAction, demoNameChecks, demoNameTargets, demoSnapshot } from "./demo-data";
+import type { ActionResult, DockerPayload, EventItem, HealthPayload, NameCheck, NamesPayload, NameTargets, NetworkPayload, PowerPayload, SitesPayload, Snapshot, StatusPayload } from "./types";
 
 export const IS_DEMO = process.env.NEXT_PUBLIC_SHELTIE_DEMO === "1";
 
@@ -41,7 +41,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export async function fetchSnapshot(): Promise<Snapshot> {
   if (IS_DEMO) return demoSnapshot();
 
-  const [status, health, network, docker, sites, events, power] = await Promise.allSettled([
+  const [status, health, network, docker, sites, events, power, names] = await Promise.allSettled([
     request<StatusPayload>("status"),
     request<HealthPayload>("health"),
     request<NetworkPayload>("network"),
@@ -49,9 +49,10 @@ export async function fetchSnapshot(): Promise<Snapshot> {
     request<SitesPayload>("sites"),
     request<{ events: EventItem[] }>("events"),
     request<PowerPayload>("power"),
+    request<NamesPayload>("names"),
   ]);
 
-  const all = [status, health, network, docker, sites, events, power];
+  const all = [status, health, network, docker, sites, events, power, names];
   if (all.every((result) => result.status === "rejected")) {
     const reason = (status as PromiseRejectedResult).reason;
     throw reason instanceof Error ? reason : new ApiError("Sheltie API unavailable", 0);
@@ -66,8 +67,21 @@ export async function fetchSnapshot(): Promise<Snapshot> {
     sites: value(sites),
     events: value(events)?.events ?? null,
     power: value(power),
+    names: value(names),
     fetchedAt: Date.now(),
   };
+}
+
+/** What a new name could point at. Slower than the snapshot, so it is only fetched when the add/edit sheet opens. */
+export async function fetchNameTargets(): Promise<NameTargets> {
+  if (IS_DEMO) return demoNameTargets();
+  return request<NameTargets>("names/targets");
+}
+
+/** The DNS setup checks (DNS server answering, split DNS, proxy login). Each one does a network round trip. */
+export async function fetchNameChecks(): Promise<NameCheck[]> {
+  if (IS_DEMO) return demoNameChecks();
+  return (await request<{ checks: NameCheck[] }>("names/checks")).checks;
 }
 
 /** Runs an action endpoint. Throws ApiError(403) when the action token is missing or wrong. */

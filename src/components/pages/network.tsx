@@ -3,6 +3,7 @@
 import { Cable, Globe, Router, Server, Wifi } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { NamesSection } from "./names";
 import { Card, EmptyState, PageHeader, SkeletonRows } from "@/components/ui/layout";
 import { StatusPill, toneFromBool, upDownLabel } from "@/components/ui/status";
 import { useSheltie } from "@/lib/store";
@@ -87,6 +88,7 @@ export function NetworkPage() {
           </Card>
         )}
       </section>
+      <NamesSection />
     </>
   );
 }

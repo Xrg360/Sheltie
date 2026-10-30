@@ -9,7 +9,7 @@ from typing import Any
 import yaml
 
 from monitors.actions import ActionService
-from monitors.alerts import AlertManager
+from monitors.alerts import Alert, AlertManager, utc_now
 from monitors.api import ApiServer
 from monitors.autofix import AutoHealMonitor
 from monitors.commands import TelegramCommandMonitor
@@ -19,6 +19,7 @@ from monitors.disk import check_disk
 from monitors.docker import DockerEventMonitor
 from monitors.history import HistoryStore
 from monitors.internet import check_internet
+from monitors.names import build_names_service
 from monitors.network import check_network
 from monitors.power import PowerService
 from monitors.ram import check_ram
@@ -96,7 +97,15 @@ def main() -> int:
     docker_monitor.start()
     command_monitor = TelegramCommandMonitor(config, state, notifier, status_service, action_service)
     command_monitor.start()
-    api_server = ApiServer(config, status_service, action_service)
+
+    def record_name_change(title: str, body: str) -> None:
+        history.record(Alert(id="names.change", source="names", severity="info", status="event", title=title, body=body, timestamp=utc_now()))
+
+    names_service = build_names_service(config, record_name_change)
+    if names_service:
+        names_service.start()
+        logging.info("DNS names enabled for *.%s", names_service.zone())
+    api_server = ApiServer(config, status_service, action_service, names_service)
     api_server.start()
     web_server = WebServer(config)
     web_server.start()
@@ -107,6 +116,8 @@ def main() -> int:
         auto_heal_monitor.stop()
         docker_monitor.stop()
         command_monitor.stop()
+        if names_service:
+            names_service.stop()
         api_server.stop()
         web_server.stop()
 

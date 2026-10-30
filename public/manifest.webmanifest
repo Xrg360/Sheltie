@@ -1,0 +1,21 @@
+{
+  "id": "./",
+  "name": "Sheltie",
+  "short_name": "Sheltie",
+  "description": "Uptime, Docker, network, DNS names and host health for your homelab, and what happened while you were away.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fffaf0",
+  "theme_color": "#fffaf0",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "DNS names", "short_name": "Names", "url": "./network/#names-title", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Incidents", "url": "./incidents/", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Containers", "url": "./containers/", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
