@@ -1,4 +1,4 @@
-FROM node:24-slim AS web-build
+FROM node:26-slim AS web-build
 
 WORKDIR /app
 
@@ -12,7 +12,7 @@ COPY public ./public
 RUN npm run build
 
 
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 # MALLOC_ARENA_MAX: glibc gives every thread its own malloc arena by default, which
 # leaves a threaded Python process holding far more memory than it uses.
